@@ -2,6 +2,6 @@ El proyecto consiste en una placa ESP32 conectada a un sensor DHT22 para tomar m
 enviar los datos y mostrarlos de manera visual, y con un bot de telegram que le permita al usuario utilizar un menú de comandos (detallado en el PDF con la consigna)
 
 Consideraciones importantes: 
- - El comportamiento debe estar implementado en librerías y funciones, loop() debe contener la menor cantidad de lógica posible, teniendo predominantemente llamadas a funciones y librerías
- - Para poder utilizar el sensor DHT22, wifi y la conexión con telegram es necesario descargar unas librerías
- - Todo el código debe poder quemarse en una placa ESP32 y ser funcional
+    - El comportamiento debe estar implementado en librerías y funciones, loop() debe contener la menor cantidad de lógica posible, teniendo predominantemente llamadas a funciones y librerías
+    - Para poder utilizar el sensor DHT22, wifi y la conexión con telegram es necesario descargar unas librerías
+    - Todo el código debe poder quemarse en una placa ESP32 y ser funcional

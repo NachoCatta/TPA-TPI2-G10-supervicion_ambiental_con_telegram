@@ -1,18 +1,30 @@
+#include "Configuracion.h"
+#include "GestorActuadores.h"
+#include "GestorDisplay.h"
+#include "GestorSensores.h"
+#include "GestorTelegram.h"
+#include "GestorThingSpeak.h"
 #include <Arduino.h>
 
-// put function declarations here:
-int myFunction(int, int);
+// Instancias globales de los módulos del sistema
+GestorSensores sensores(PIN_DHT22, PIN_POTENCIOMETRO);
+GestorActuadores actuadores(PIN_LED_VERDE, PIN_LED_AZUL);
+GestorDisplay display;
+GestorThingSpeak thingSpeak;
+GestorTelegram telegram;
 
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  Serial.begin(115200);
+  sensores.iniciar();
+  actuadores.iniciar();
+  display.iniciar();
+  thingSpeak.iniciar();
+  telegram.iniciar();
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-}
-
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+  sensores.actualizar();
+  actuadores.actualizar();
+  thingSpeak.actualizar(sensores);
+  telegram.actualizar(sensores, actuadores, display, thingSpeak);
 }
