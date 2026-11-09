@@ -1,33 +1,159 @@
 #include "GestorDisplay.h"
 
 GestorDisplay::GestorDisplay()
-    : _oled(OLED_ANCHO, OLED_ALTO, &Wire, -1),
-      _inicializado(false) {}
+    : _oled(OLED_ANCHO, OLED_ALTO, &Wire, -1), _inicializado(false) {}
 
 bool GestorDisplay::iniciar() {
-    // Se implementará la inicialización I2C y renderizado OLED en la Etapa 2
-    return _inicializado;
+  Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL);
+
+  if (!_oled.begin(SSD1306_SWITCHCAPVCC, OLED_DIRECCION_I2C)) {
+    Serial.println(
+        F("[Display] Error: No se encontro la pantalla OLED SSD1306 (0x3C)."));
+    _inicializado = false;
+    return false;
+  }
+
+  _inicializado = true;
+  _oled.clearDisplay();
+  _oled.setTextColor(SSD1306_WHITE);
+  mostrarBienvenida();
+  return true;
 }
 
-void GestorDisplay::mostrarBienvenida() {}
-
-void GestorDisplay::mostrarEstadoLed(bool releEncendido, bool ledAzulEncendido) {
-    (void)releEncendido;
-    (void)ledAzulEncendido;
+void GestorDisplay::dibujarEncabezado(const char *titulo) {
+  _oled.clearDisplay();
+  _oled.setTextSize(1);
+  _oled.setTextColor(SSD1306_WHITE);
+  _oled.setCursor(0, 0);
+  _oled.println(titulo);
+  _oled.drawLine(0, 10, OLED_ANCHO - 1, 10, SSD1306_WHITE);
 }
 
-void GestorDisplay::mostrarEstadoPotenciometro(float voltaje, uint16_t valorAdc) {
-    (void)voltaje;
-    (void)valorAdc;
+void GestorDisplay::mostrarBienvenida() {
+  if (!_inicializado) return;
+
+  dibujarEncabezado("UTN FRC - TPI2 G10");
+  _oled.setCursor(0, 18);
+  _oled.println(F("Supervision Ambiental"));
+  _oled.println(F("y Actuacion Remota"));
+  _oled.setCursor(0, 46);
+  _oled.println(F("Esperando comandos..."));
+  _oled.display();
 }
 
-void GestorDisplay::mostrarEstadoDht(float temperatura, float humedad, bool valido) {
-    (void)temperatura;
-    (void)humedad;
-    (void)valido;
+void GestorDisplay::mostrarEstadoWifi(bool conectado,
+                                      const String &ssid,
+                                      const String &ip) {
+  if (!_inicializado) return;
+
+  dibujarEncabezado("CONEXION WI-FI");
+  _oled.setCursor(0, 16);
+  _oled.print(F("Red: "));
+  _oled.println(ssid);
+
+  _oled.setCursor(0, 32);
+  if (conectado) {
+    _oled.println(F("Estado: CONECTADO"));
+    _oled.setCursor(0, 46);
+    _oled.print(F("IP: "));
+    _oled.println(ip);
+  } else {
+    _oled.println(F("Estado: CONECTANDO..."));
+  }
+  _oled.display();
 }
 
-void GestorDisplay::mostrarComandoNoIdentificado(const String& comandoRecibido) {
-    (void)comandoRecibido;
+void GestorDisplay::mostrarEstadoLed(bool releEncendido,
+                                     bool ledAzulEncendido,
+                                     unsigned long segundosRestantes) {
+  if (!_inicializado) return;
+
+  dibujarEncabezado("ESTADO DE LED / RELE");
+  _oled.setCursor(0, 18);
+  _oled.setTextSize(1);
+
+  // Mensaje principal requerido por el enunciado (/displayled)
+  if (releEncendido) {
+    _oled.println(F("Led encendido"));
+  } else {
+    _oled.println(F("Led apagado"));
+  }
+
+  _oled.setCursor(0, 34);
+  if (releEncendido && segundosRestantes > 0) {
+    _oled.printf("Timer: %lu s restantes\n", segundosRestantes);
+  } else {
+    _oled.println(F("Timer: inactivo"));
+  }
+
+  _oled.setCursor(0, 48);
+  _oled.print(F("LED WiFi (Azul): "));
+  _oled.println(ledAzulEncendido ? F("ON") : F("OFF"));
+  _oled.display();
 }
 
+void GestorDisplay::mostrarEstadoPotenciometro(float voltaje,
+                                               uint16_t valorAdc,
+                                               bool superaUmbral) {
+  if (!_inicializado) return;
+
+  dibujarEncabezado("ESTADO POTENCIOMETRO");
+  _oled.setCursor(0, 16);
+  _oled.printf("Voltaje: %.2f V\n", voltaje);
+
+  _oled.setCursor(0, 28);
+  _oled.printf("ADC (12b): %u / 4095\n", valorAdc);
+
+  // Barra gráfica proporcional al voltaje (0 a 3.30V)
+  uint8_t anchoBarra =
+      static_cast<uint8_t>(( static_cast<float>(valorAdc) / ADC_RESOLUCION) * 120.0f);
+  _oled.drawRect(0, 40, 122, 8, SSD1306_WHITE);
+  _oled.fillRect(1, 41, anchoBarra, 6, SSD1306_WHITE);
+
+  _oled.setCursor(0, 52);
+  if (superaUmbral) {
+    _oled.println(F("Estado: ALERTA CRITICA"));
+  } else {
+    _oled.println(F("Estado: Normal"));
+  }
+  _oled.display();
+}
+
+void GestorDisplay::mostrarEstadoDht(float temperatura,
+                                     float humedad,
+                                     bool valido) {
+  if (!_inicializado) return;
+
+  dibujarEncabezado("SENSOR CLIMA (DHT22)");
+  if (!valido) {
+    _oled.setCursor(0, 24);
+    _oled.println(F("Error de lectura o"));
+    _oled.println(F("inicializando DHT22"));
+    _oled.display();
+    return;
+  }
+
+  _oled.setCursor(0, 18);
+  _oled.printf("Temp: %.1f C\n", temperatura);
+
+  _oled.setCursor(0, 34);
+  _oled.printf("Hum:  %.1f %%\n", humedad);
+
+  _oled.setCursor(0, 50);
+  _oled.println(F("Estado: Lectura OK"));
+  _oled.display();
+}
+
+void GestorDisplay::mostrarComandoNoIdentificado(
+    const String &comandoRecibido) {
+  if (!_inicializado) return;
+
+  dibujarEncabezado("ERROR DE COMANDO");
+  _oled.setCursor(0, 18);
+  _oled.println(F("Comando no"));
+  _oled.println(F("identificado:"));
+
+  _oled.setCursor(0, 42);
+  _oled.println(comandoRecibido);
+  _oled.display();
+}

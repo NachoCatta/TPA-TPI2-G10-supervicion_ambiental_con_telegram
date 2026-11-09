@@ -113,29 +113,25 @@ El objetivo del proyecto es desarrollar un sistema embebido basado en el microco
 
 ---
 
-## 4. Información, Credenciales (Keys) y Definiciones Necesarias
+## 4. Definiciones y Credenciales Confirmadas
 
-Para poder avanzar con la codificación completa y que puedas probarlo directamente con tus cuentas, necesito que me proporciones o confirmes los siguientes datos:
-
-### A. Credenciales y Keys de Servicios Externos
-1. **Telegram Bot Token:** El token de acceso generado por `@BotFather` en Telegram (ej. `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`).
-2. **Telegram Chat ID (por defecto):** Tu `chat_id` numérico de Telegram o el del grupo donde el ESP32 enviará las **alertas automáticas de seguridad** cuando el potenciómetro supere el umbral crítico (incluso antes de que alguien interactúe con el bot tras un reinicio).
-3. **ThingSpeak Write API Key:** La clave de escritura (*Write API Key*) de tu canal de ThingSpeak (16 caracteres alfanuméricos) y, opcionalmente, el **Channel ID**.
-4. **Orden de los Campos (Fields) en ThingSpeak:** Confirmar qué número de *Field* asignaste en tu canal de ThingSpeak para cada variable. Por defecto se propone:
+### A. Credenciales y Servicios Externos
+1. **Telegram Bot Token y Chat ID:** Configurados en `include/secrets.h`. Se utiliza el `chat_id` personal como destinatario por defecto para las alertas automáticas de seguridad (además, cuando cualquier usuario interactúe con el bot, el sistema responderá a ese chat).
+2. **ThingSpeak Channel ID y Write API Key:** Configurados en `include/secrets.h` con el siguiente orden de campos confirmado:
    * `Field 1`: Temperatura (°C)
    * `Field 2`: Humedad Relativa (%)
    * `Field 3`: Voltaje del Potenciómetro (V)
-5. **Credenciales Wi-Fi (para la placa física UTN):**
-   * En simulación Wokwi utilizaremos la red virtual `SSID: "Wokwi-GUEST"` (sin contraseña).
-   * Si ya dispones del `SSID` y `Password` de la red Wi-Fi que usarán al probar en la placa física de la UTN (o hotspot del celular), podemos dejarlos configurados mediante directivas condicionales.
+3. **Credenciales Wi-Fi:** Configuradas inicialmente con `Wokwi-GUEST` para simulación. Para la prueba física en la placa UTN solo se deberá actualizar `SECRET_WIFI_SSID` y `SECRET_WIFI_PASSWORD` en `include/secrets.h` (con el Wi-Fi del laboratorio o datos móviles/hotspot del celular).
 
-### B. Definiciones Funcionales a Confirmar
-1. **Asignación de LEDs (`GPIO 23` Verde y `GPIO 2` Azul) respecto al Relé (`/rele`):**
-   * El enunciado pide conectar el LED verde al `GPIO 23` y el LED azul al `GPIO 2`, y luego menciona el comando `/rele<on/off> <time>` para el "relé o actuador principal". ¿Cuál de los dos LEDs deseas que actúe como el relé/actuador principal (por ejemplo, LED Verde en `GPIO 23` como Relé y LED Azul en `GPIO 2` como indicador de conexión Wi-Fi/estado), o prefieres otro comportamiento?
-2. **Valor del Umbral Crítico del Potenciómetro:**
-   * El potenciómetro entrega entre `0.00 V` y `3.30 V`. ¿Qué valor de tensión deseas fijar como **umbral crítico** para disparar la alerta automática a Telegram (por ejemplo, `2.50 V` o `3.00 V`)?
-3. **Nombres exactos de los subcomandos `/display<cmd>`:**
-   * El PDF ejemplifica `/displayled` y menciona que debe funcionar igual para el potenciómetro y el sensor DHT22. ¿Prefieres que aceptemos `/displayled`, `/displaypot` (o `/displaypote`) y `/displaydht` (o `/displaydht22` / `/displayclima`)? *(Podemos programar el parser para que acepte todas estas variantes como válidas).*
-4. **Formato exacto del comando `/rele`:**
-   * En el PDF figura `/rele<on/off> <time>`. ¿Deseas que soporte tanto `/releon 10` (pegado) como `/rele on 10` (con espacio) y `/releoff` / `/rele off`? *(Podemos soportar ambos formatos para mayor comodidad y también incluir botones rápidos en `/start`).*
+### B. Definiciones Funcionales Confirmadas
+1. **Rol de los LEDs:**
+   * **LED Verde (`GPIO 23`):** Actuador principal / Relé controlado mediante Telegram.
+   * **LED Azul (`GPIO 2`):** Indicador del estado de la conexión Wi-Fi (encendido cuando está conectado).
+2. **Umbral Crítico del Potenciómetro:** Confirmado en **`2.50 V`** (con histéresis de `0.15 V` y cooldown de `30 s`).
+3. **Subcomandos de `/display<cmd>`:**
+   * `/displayled`: Muestra el estado del LED/Relé en la pantalla OLED (`"Led encendido"` / `"Led apagado"`).
+   * `/displaypot`: Muestra el voltaje y valor ADC del potenciómetro en la pantalla OLED.
+   * `/displaydht`: Muestra la temperatura y humedad del sensor DHT22 en la pantalla OLED.
+   * Cualquier otra variante de `/display...` mostrará `"Comando no identificado"` en la pantalla OLED.
+4. **Formato del comando del Relé:** Formato pegado: `/releon <time>` y `/releoff <time>` (o `/releoff`).
 
