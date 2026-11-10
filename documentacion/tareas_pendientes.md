@@ -1,6 +1,6 @@
 # Dos tareas pendientes para aportar al repositorio
 
-Actualizado: 10/11/2026. Wi-Fi ya está implementado. **ThingSpeak y Telegram quedan sin implementar intencionalmente** para que otros integrantes completen el trabajo. Conservamos sus números originales: tareas 2 y 3. No hay que rehacer los módulos ya existentes ni agregar lógica de control a `main.cpp`.
+Actualizado: 10/11/2026. Wi-Fi y el módulo de publicaciones de ThingSpeak están implementados. Telegram permanece pendiente, al igual que las pruebas con servicios/red reales. No hay que rehacer los módulos ya existentes ni agregar lógica de control a `main.cpp`.
 
 ## Base preparada
 
@@ -10,6 +10,7 @@ Actualizado: 10/11/2026. Wi-Fi ya está implementado. **ThingSpeak y Telegram qu
 - Actuador de demostración (LED verde, GPIO 23): temporización, apagado manual y validación de 1 a 3600 s. Cero no enciende indefinidamente desde la función temporizada.
 - Vistas de OLED disponibles para LED, potenciómetro, DHT y comando desconocido; todavía no son invocadas por Telegram. Soporte preparado para SSD1306 y SH1106, elegido en main mediante `GestorDisplay display(TipoDisplay::SSD1306)` o `TipoDisplay::SH1106`. Se mantiene una sola instancia y las mismas funciones de vistas.
 - Wi-Fi con conexión, reintentos cada 10 s, actualización del LED azul y solicitud de hora NTP al conectarse.
+- ThingSpeak publica clima cada 20 s y ofrece el envío de voltaje a demanda mediante HTTP. Comparte un limitador local de 15,5 s y solo confirma la escritura con un Entry ID válido.
 - 22 pruebas de lógica en `test/test_logica/` y `test/test_wifi/`, ejecutables con `pio test -e native` y un compilador C/C++ instalado.
 
 **Pines:** DHT22 33, potenciómetro 32, LED verde 23, LED azul 2 (según consigna), OLED SDA 21 / SCL 22. El relé físico del kit es GPIO 14 y no está controlado por el código actual. La polaridad del relé y la alimentación del potenciómetro deben verificarse en la placa, no deducirse del dibujo Wokwi.
@@ -24,40 +25,32 @@ La interfaz es `iniciar()`, `actualizar()` y `estaConectado()`. La conexión se 
 
 Al observar una conexión se llama a `configTime()` con los servidores de `Configuracion.h`. La sincronización continúa en segundo plano. **Solicitar NTP no demuestra que ya llegó una hora válida**: comprobar la hora antes de las operaciones TLS de los servicios pendientes. Las credenciales reales siguen en `include/secrets.h`, ignorado por Git.
 
-La integración mantiene el main como coordinador: actualiza sensores y actuadores, llama a `wifi.actualizar()` y refleja el estado con `actuadores.fijarLedAzul(wifi.estaConectado())`. Luego conserva las llamadas a los dos servicios todavía pendientes.
+La integración mantiene el main como coordinador: actualiza sensores y actuadores, llama a `wifi.actualizar()` y refleja el estado con `actuadores.fijarLedAzul(wifi.estaConectado())`. Luego conserva las llamadas a los servicios.
 
 Las 8 pruebas nuevas simulan conexión, red ausente/clave incorrecta, caída y recuperación, NTP solicitado una vez por conexión, LED azul, desbordamiento de `millis()` y funcionamiento del temporizador durante reintentos. No establecen conexiones ni reciben hora reales.
 
 La puesta en marcha real se verifica junto con el cierre de la entrega, no se marca realizada por estas pruebas. Ver las comprobaciones comunes al final del documento.
 
-## Tarea 2 — Envíos a ThingSpeak
+## Tarea 2 — Envíos a ThingSpeak (implementada; validación externa pendiente)
 
-**Responsable:** por asignar. **Dependencias:** usar el módulo Wi-Fi ya integrado; requiere red/canal reales para pruebas de servicio.
+**Archivos:** `lib/GestorThingSpeak/GestorThingSpeak.h` y `.cpp`.
 
-**Archivos:** `lib/GestorThingSpeak/GestorThingSpeak.h` y `.cpp`. Mantener la interfaz actual si alcanza:
+Implementación actual:
 
-```cpp
-void iniciar();
-void actualizar(const GestorSensores &sensores);
-bool enviarVoltajePotenciometro(float voltaje);
-```
-
-### Implementar
-
-1. Inicializar el cliente para ThingSpeak. Usar `SECRET_THINGSPEAK_CHANNEL_ID` y `SECRET_THINGSPEAK_WRITE_KEY`; preferir HTTPS con verificación del certificado.
-2. En `actualizar()`, enviar temperatura a `FIELD_TEMPERATURA` (1) y humedad a `FIELD_HUMEDAD` (2) cada `INTERVALO_THINGSPEAK_MS` (20 s). Comprobar `sensores.datosDhtValidos()` para no publicar una lectura fallida como actual.
-3. En `enviarVoltajePotenciometro()`, publicar el voltaje en `FIELD_VOLTAJE_POT` (3). No modificar el significado de los campos.
-4. Compartir el control del último envío entre publicación periódica y manual. Un canal gratuito requiere al menos 15 s entre escrituras; un `/thingup` inmediato puede ser rechazado por ese límite. Mantenerlo simple: si no puede enviarse ahora, devolver `false` y Telegram deberá informarlo. No prometer envío exitoso ni dejar una cola oculta.
-5. Retornar `true` únicamente cuando el servicio confirme que guardó el dato. Comprobar Wi-Fi, validez del dato y respuesta real. Limitar el tiempo de espera de red; no agregar `delay()` para espaciar escrituras.
+- Usa `SECRET_THINGSPEAK_CHANNEL_ID` y `SECRET_THINGSPEAK_WRITE_KEY`; transmite por HTTP con `HTTPClient` y limita a 2 s la conexión y lectura.
+- Publica los campos 1 y 2 cada 20 s, solo con una lectura DHT válida, y el campo 3 bajo demanda.
+- Comparte un intervalo mínimo de 15,5 s entre envíos periódicos y manuales. Un intento prematuro retorna `false`.
+- Retorna éxito únicamente ante HTTP 200 y un Entry ID numérico mayor que cero. Usa un timeout de lectura de 2 s; la operación sigue siendo síncrona.
 
 ### Comprobar para terminar
 
-- [ ] Compila y las pruebas locales siguen pasando.
+- [x] Compila en el entorno ESP32.
+- [x] Las pruebas locales siguen pasando.
 - [ ] El canal muestra temperatura/humedad en los campos correctos.
 - [ ] El envío manual guarda el voltaje y devuelve éxito solo si fue aceptado.
 - [ ] Dos envíos demasiado cercanos se manejan explícitamente, incluyendo manual/periódico.
 - [ ] Sin red, con API Key incorrecta o DHT inválido, el módulo informa fallo y no bloquea indefinidamente el programa.
-- [ ] Documentar el tiempo máximo observado de una operación de red y comprobar que respete el margen acordado para el apagado del actuador. `millis()` por sí solo no vuelve asíncrona una solicitud HTTP.
+- [ ] Medir el tiempo real de una operación de red y comprobar el temporizador del actuador. `millis()` por sí solo no vuelve asíncrona una solicitud HTTP.
 
 Referencia: [límites de actualización de ThingSpeak](https://www.mathworks.com/help/thingspeak/channel-control.html).
 
