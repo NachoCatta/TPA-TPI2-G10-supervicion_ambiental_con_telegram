@@ -7,10 +7,10 @@ GestorSensores::GestorSensores(uint8_t pinDht, uint8_t pinPot)
       _temperatura(0.0f),
       _humedad(0.0f),
       _dhtValido(false),
-      _primeraLecturaDht(false),
       _adcPot(0),
       _voltajePot(0.0f),
       _enEstadoCritico(false),
+      _alertaGeneradaEnEstadoCritico(false),
       _alertaPendiente(false),
       _ultimaLecturaDhtMs(0),
       _ultimaLecturaPotMs(0),
@@ -20,9 +20,12 @@ void GestorSensores::iniciar() {
   _dht.begin();
   pinMode(_pinPot, INPUT);
   analogReadResolution(12); // Configura el ADC del ESP32 en 12 bits (0 - 4095)
+  analogSetPinAttenuation(_pinPot, ADC_11db);
 
   // Lectura inicial al arrancar el sistema
   unsigned long ahoraMs = millis();
+  // Permite alertar en el arranque, incluso cuando millis() vale cero.
+  _ultimaAlertaMs = ahoraMs - COOLDOWN_ALERTA_VOLTAJE_MS;
   leerPotenciometro(ahoraMs);
   leerDht();
   _ultimaLecturaPotMs = ahoraMs;
@@ -39,10 +42,8 @@ void GestorSensores::actualizar() {
   }
 
   // 2. Muestreo periódico no bloqueante del sensor DHT22 (cada 2500 ms)
-  if (!_primeraLecturaDht ||
-      (ahoraMs - _ultimaLecturaDhtMs >= INTERVALO_LECTURA_DHT_MS)) {
+  if (ahoraMs - _ultimaLecturaDhtMs >= INTERVALO_LECTURA_DHT_MS) {
     _ultimaLecturaDhtMs = ahoraMs;
-    _primeraLecturaDht = true;
     leerDht();
   }
 }
@@ -58,10 +59,10 @@ void GestorSensores::leerDht() {
   float nuevaTemperatura = _dht.readTemperature();
 
   // Validar que la lectura no sea NaN (Not a Number) por fallo de comunicación
-  if (!isnan(nuevaHumedad) && !isnan(nuevaTemperatura)) {
+  _dhtValido = !isnan(nuevaHumedad) && !isnan(nuevaTemperatura);
+  if (_dhtValido) {
     _humedad = nuevaHumedad;
     _temperatura = nuevaTemperatura;
-    _dhtValido = true;
   } else {
     Serial.println(
         F("[Sensores] Advertencia: Error al leer el sensor DHT22."));
@@ -70,26 +71,25 @@ void GestorSensores::leerDht() {
 
 void GestorSensores::leerPotenciometro(unsigned long ahoraMs) {
   _adcPot = analogRead(_pinPot);
-  _voltajePot =
-      (static_cast<float>(_adcPot) / ADC_RESOLUCION) * VOLTAJE_REFERENCIA;
+  _voltajePot = analogReadMilliVolts(_pinPot) / 1000.0f;
 
-  // Evaluación de umbral crítico con histéresis y cooldown no bloqueante
+  // La histéresis define el episodio; el cooldown solo retrasa su alerta.
   if (_voltajePot >= UMBRAL_CRITICO_VOLTAJE) {
-    bool cooldownCumplido =
-        (_ultimaAlertaMs == 0) ||
-        (ahoraMs - _ultimaAlertaMs >= COOLDOWN_ALERTA_VOLTAJE_MS);
-
-    if (!_enEstadoCritico && cooldownCumplido) {
-      _alertaPendiente = true;
-      _ultimaAlertaMs = ahoraMs;
-      Serial.printf(
-          "[Sensores] ALERTA CRITICA: Voltaje %.2f V supera umbral (%.2f V)\n",
-          _voltajePot, UMBRAL_CRITICO_VOLTAJE);
-    }
     _enEstadoCritico = true;
   } else if (_voltajePot <= (UMBRAL_CRITICO_VOLTAJE - HISTERESIS_VOLTAJE)) {
-    // Rearma la detección únicamente cuando cae por debajo del margen de histéresis
     _enEstadoCritico = false;
+    _alertaGeneradaEnEstadoCritico = false;
+  }
+
+  bool cooldownCumplido = ahoraMs - _ultimaAlertaMs >= COOLDOWN_ALERTA_VOLTAJE_MS;
+  if (_enEstadoCritico && !_alertaGeneradaEnEstadoCritico &&
+      !_alertaPendiente && cooldownCumplido) {
+    _alertaPendiente = true;
+    _alertaGeneradaEnEstadoCritico = true;
+    _ultimaAlertaMs = ahoraMs;
+    Serial.printf(
+        "[Sensores] ALERTA CRITICA: Voltaje %.2f V supera umbral (%.2f V)\n",
+        _voltajePot, UMBRAL_CRITICO_VOLTAJE);
   }
 }
 

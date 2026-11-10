@@ -1,7 +1,7 @@
 #include "GestorActuadores.h"
 
-GestorActuadores::GestorActuadores(uint8_t pinReleVerde, uint8_t pinLedAzul)
-    : _pinReleVerde(pinReleVerde),
+GestorActuadores::GestorActuadores(uint8_t pinActuador, uint8_t pinLedAzul)
+    : _pinActuador(pinActuador),
       _pinLedAzul(pinLedAzul),
       _estadoRele(false),
       _estadoLedAzul(false),
@@ -11,9 +11,9 @@ GestorActuadores::GestorActuadores(uint8_t pinReleVerde, uint8_t pinLedAzul)
       _duracionTemporizadorMs(0) {}
 
 void GestorActuadores::iniciar() {
-  pinMode(_pinReleVerde, OUTPUT);
+  pinMode(_pinActuador, OUTPUT);
   pinMode(_pinLedAzul, OUTPUT);
-  digitalWrite(_pinReleVerde, LOW);
+  digitalWrite(_pinActuador, LOW);
   digitalWrite(_pinLedAzul, LOW);
 }
 
@@ -25,7 +25,7 @@ void GestorActuadores::actualizar() {
       _estadoRele = false;
       _temporizadorActivo = false;
       _eventoApagadoAuto = true;
-      digitalWrite(_pinReleVerde, LOW);
+      digitalWrite(_pinActuador, LOW);
       Serial.println(
           F("[Actuadores] Tiempo cumplido: Rele (LED Verde) apagado automaticamente."));
     }
@@ -36,14 +36,13 @@ void GestorActuadores::encenderRele() {
   _estadoRele = true;
   _temporizadorActivo = false;
   _eventoApagadoAuto = false;
-  digitalWrite(_pinReleVerde, HIGH);
+  digitalWrite(_pinActuador, HIGH);
   Serial.println(F("[Actuadores] Rele (LED Verde) encendido de forma continua."));
 }
 
-void GestorActuadores::encenderReleTemporizado(unsigned long segundos) {
-  if (segundos == 0) {
-    encenderRele();
-    return;
+bool GestorActuadores::encenderReleTemporizado(unsigned long segundos) {
+  if (segundos == 0 || segundos > MAX_TIEMPO_RELE_SEGUNDOS) {
+    return false;
   }
 
   _estadoRele = true;
@@ -51,17 +50,18 @@ void GestorActuadores::encenderReleTemporizado(unsigned long segundos) {
   _eventoApagadoAuto = false;
   _inicioTemporizadorMs = millis();
   _duracionTemporizadorMs = segundos * 1000UL;
-  digitalWrite(_pinReleVerde, HIGH);
+  digitalWrite(_pinActuador, HIGH);
 
   Serial.printf(
       "[Actuadores] Rele (LED Verde) encendido por %lu segundos.\n", segundos);
+  return true;
 }
 
 void GestorActuadores::apagarRele() {
   _estadoRele = false;
   _temporizadorActivo = false;
   _eventoApagadoAuto = false;
-  digitalWrite(_pinReleVerde, LOW);
+  digitalWrite(_pinActuador, LOW);
   Serial.println(F("[Actuadores] Rele (LED Verde) apagado."));
 }
 
@@ -89,7 +89,8 @@ unsigned long GestorActuadores::segundosRestantesRele() const {
     return 0;
   }
   // Redondeo hacia arriba al segundo entero más cercano
-  return (_duracionTemporizadorMs - transcurridoMs + 999UL) / 1000UL;
+  unsigned long restanteMs = _duracionTemporizadorMs - transcurridoMs;
+  return restanteMs / 1000UL + (restanteMs % 1000UL != 0);
 }
 
 bool GestorActuadores::consumirEventoApagadoAutomatico() {

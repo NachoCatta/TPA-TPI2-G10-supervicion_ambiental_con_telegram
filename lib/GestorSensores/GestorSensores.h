@@ -15,7 +15,7 @@ public:
   // --- Métodos del Sensor DHT22 ---
   float obtenerTemperatura() const;
   float obtenerHumedad() const;
-  bool datosDhtValidos() const;
+  bool datosDhtValidos() const; // Indica si la última lectura fue exitosa.
 
   // --- Métodos del Potenciómetro (ADC -> Voltaje) ---
   uint16_t obtenerValorAdcPot() const;
@@ -40,11 +40,11 @@ private:
   float _temperatura;
   float _humedad;
   bool _dhtValido;
-  bool _primeraLecturaDht;
 
   uint16_t _adcPot;
   float _voltajePot;
   bool _enEstadoCritico;
+  bool _alertaGeneradaEnEstadoCritico;
   bool _alertaPendiente;
 
   unsigned long _ultimaLecturaDhtMs;

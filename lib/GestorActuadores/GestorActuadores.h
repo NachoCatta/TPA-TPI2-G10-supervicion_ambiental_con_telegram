@@ -6,14 +6,15 @@
 
 class GestorActuadores {
 public:
-  GestorActuadores(uint8_t pinReleVerde, uint8_t pinLedAzul);
+  GestorActuadores(uint8_t pinActuador, uint8_t pinLedAzul);
 
   void iniciar();
   void actualizar();
 
-  // --- Control del Relé / Actuador Principal (LED Verde - GPIO 23) ---
+  // La API se llama "Rele" por el comando; main utiliza el LED verde (GPIO 23).
   void encenderRele();
-  void encenderReleTemporizado(unsigned long segundos);
+  // Rechaza cero o tiempos mayores al máximo sin cambiar la salida actual.
+  bool encenderReleTemporizado(unsigned long segundos);
   void apagarRele();
 
   // --- Control del LED Indicador de Conexión (LED Azul - GPIO 2) ---
@@ -29,7 +30,7 @@ public:
   bool consumirEventoApagadoAutomatico();
 
 private:
-  uint8_t _pinReleVerde;
+  uint8_t _pinActuador;
   uint8_t _pinLedAzul;
   bool _estadoRele;
   bool _estadoLedAzul;

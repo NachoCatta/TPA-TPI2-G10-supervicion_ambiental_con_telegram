@@ -13,7 +13,7 @@
 // 1. DEFINICIÓN DE PINES DE HARDWARE
 constexpr uint8_t PIN_DHT22 = 33; // Sensor de Temperatura y Humedad DHT22
 constexpr uint8_t PIN_POTENCIOMETRO = 32; // Entrada Analógica ADC1_CH4
-constexpr uint8_t PIN_LED_VERDE = 23;     // Actuador principal / Relé
+constexpr uint8_t PIN_LED_VERDE = 23; // Actuador de demostración; el relé físico usa GPIO 14
 constexpr uint8_t PIN_LED_AZUL = 2;  // LED indicador de estado / secundario
 constexpr uint8_t PIN_OLED_SDA = 21; // I2C SDA estándar
 constexpr uint8_t PIN_OLED_SCL = 22; // I2C SCL estándar
@@ -24,10 +24,10 @@ constexpr uint8_t OLED_ALTO = 64;
 constexpr uint8_t OLED_DIRECCION_I2C = 0x3C;
 
 constexpr float ADC_RESOLUCION = 4095.0f;
-constexpr float VOLTAJE_REFERENCIA = 3.30f;
 constexpr float UMBRAL_CRITICO_VOLTAJE =
     2.50f; // Umbral crítico para alerta automática
 constexpr float HISTERESIS_VOLTAJE = 0.15f; // Margen para rearmar la alerta
+constexpr unsigned long MAX_TIEMPO_RELE_SEGUNDOS = 3600UL; // Límite del proyecto: 1 hora
 
 // 3. INTERVALOS DE TIEMPO NO BLOQUEANTES (millis)
 constexpr unsigned long INTERVALO_LECTURA_DHT_MS = 2500UL; // 2.5 segundos

@@ -1,32 +1,55 @@
 #include "GestorDisplay.h"
 
-GestorDisplay::GestorDisplay()
-    : _oled(OLED_ANCHO, OLED_ALTO, &Wire, -1), _inicializado(false) {}
+namespace {
+constexpr uint16_t COLOR_BLANCO = 1;
+constexpr uint16_t COLOR_NEGRO = 0;
+}
+
+GestorDisplay::GestorDisplay(TipoDisplay tipo)
+    : _tipo(tipo),
+      _ssd1306(OLED_ANCHO, OLED_ALTO, &Wire, -1),
+      _sh1106(OLED_ANCHO, OLED_ALTO, &Wire, -1),
+      _oled(tipo == TipoDisplay::SSD1306
+                ? static_cast<Adafruit_GFX &>(_ssd1306)
+                : static_cast<Adafruit_GFX &>(_sh1106)),
+      _inicializado(false) {}
 
 bool GestorDisplay::iniciar() {
   Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL);
 
-  if (!_oled.begin(SSD1306_SWITCHCAPVCC, OLED_DIRECCION_I2C)) {
+  // Solo se inicializa el controlador seleccionado en main.
+  bool correcto = _tipo == TipoDisplay::SSD1306
+                      ? _ssd1306.begin(SSD1306_SWITCHCAPVCC, OLED_DIRECCION_I2C)
+                      : _sh1106.begin(OLED_DIRECCION_I2C, true);
+  if (!correcto) {
     Serial.println(
-        F("[Display] Error: No se encontro la pantalla OLED SSD1306 (0x3C)."));
+        F("[Display] Error al inicializar el controlador OLED seleccionado."));
     _inicializado = false;
     return false;
   }
 
   _inicializado = true;
-  _oled.clearDisplay();
-  _oled.setTextColor(SSD1306_WHITE);
+  _oled.fillScreen(COLOR_NEGRO);
+  _oled.setTextColor(COLOR_BLANCO);
   mostrarBienvenida();
   return true;
 }
 
+void GestorDisplay::actualizarPantalla() {
+  if (_tipo == TipoDisplay::SSD1306) {
+    _ssd1306.display();
+  } else {
+    _sh1106.display();
+  }
+}
+
 void GestorDisplay::dibujarEncabezado(const char *titulo) {
-  _oled.clearDisplay();
+  _oled.fillScreen(COLOR_NEGRO);
   _oled.setTextSize(1);
-  _oled.setTextColor(SSD1306_WHITE);
+  _oled.setTextColor(COLOR_BLANCO);
   _oled.setCursor(0, 0);
   _oled.println(titulo);
-  _oled.drawLine(0, 10, OLED_ANCHO - 1, 10, SSD1306_WHITE);
+  _oled.drawLine(0, 10, OLED_ANCHO - 1, 10, COLOR_BLANCO);
 }
 
 void GestorDisplay::mostrarBienvenida() {
@@ -38,7 +61,7 @@ void GestorDisplay::mostrarBienvenida() {
   _oled.println(F("y Actuacion Remota"));
   _oled.setCursor(0, 46);
   _oled.println(F("Esperando comandos..."));
-  _oled.display();
+  actualizarPantalla();
 }
 
 void GestorDisplay::mostrarEstadoWifi(bool conectado,
@@ -60,7 +83,7 @@ void GestorDisplay::mostrarEstadoWifi(bool conectado,
   } else {
     _oled.println(F("Estado: CONECTANDO..."));
   }
-  _oled.display();
+  actualizarPantalla();
 }
 
 void GestorDisplay::mostrarEstadoLed(bool releEncendido,
@@ -89,7 +112,7 @@ void GestorDisplay::mostrarEstadoLed(bool releEncendido,
   _oled.setCursor(0, 48);
   _oled.print(F("LED WiFi (Azul): "));
   _oled.println(ledAzulEncendido ? F("ON") : F("OFF"));
-  _oled.display();
+  actualizarPantalla();
 }
 
 void GestorDisplay::mostrarEstadoPotenciometro(float voltaje,
@@ -104,11 +127,11 @@ void GestorDisplay::mostrarEstadoPotenciometro(float voltaje,
   _oled.setCursor(0, 28);
   _oled.printf("ADC (12b): %u / 4095\n", valorAdc);
 
-  // Barra gráfica proporcional al voltaje (0 a 3.30V)
+  // Barra gráfica proporcional al valor ADC bruto.
   uint8_t anchoBarra =
       static_cast<uint8_t>(( static_cast<float>(valorAdc) / ADC_RESOLUCION) * 120.0f);
-  _oled.drawRect(0, 40, 122, 8, SSD1306_WHITE);
-  _oled.fillRect(1, 41, anchoBarra, 6, SSD1306_WHITE);
+  _oled.drawRect(0, 40, 122, 8, COLOR_BLANCO);
+  _oled.fillRect(1, 41, anchoBarra, 6, COLOR_BLANCO);
 
   _oled.setCursor(0, 52);
   if (superaUmbral) {
@@ -116,7 +139,7 @@ void GestorDisplay::mostrarEstadoPotenciometro(float voltaje,
   } else {
     _oled.println(F("Estado: Normal"));
   }
-  _oled.display();
+  actualizarPantalla();
 }
 
 void GestorDisplay::mostrarEstadoDht(float temperatura,
@@ -129,7 +152,7 @@ void GestorDisplay::mostrarEstadoDht(float temperatura,
     _oled.setCursor(0, 24);
     _oled.println(F("Error de lectura o"));
     _oled.println(F("inicializando DHT22"));
-    _oled.display();
+    actualizarPantalla();
     return;
   }
 
@@ -141,7 +164,7 @@ void GestorDisplay::mostrarEstadoDht(float temperatura,
 
   _oled.setCursor(0, 50);
   _oled.println(F("Estado: Lectura OK"));
-  _oled.display();
+  actualizarPantalla();
 }
 
 void GestorDisplay::mostrarComandoNoIdentificado(
@@ -155,5 +178,5 @@ void GestorDisplay::mostrarComandoNoIdentificado(
 
   _oled.setCursor(0, 42);
   _oled.println(comandoRecibido);
-  _oled.display();
+  actualizarPantalla();
 }

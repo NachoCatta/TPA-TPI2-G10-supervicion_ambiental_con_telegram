@@ -2,15 +2,18 @@
 #define GESTOR_DISPLAY_H
 
 #include <Adafruit_GFX.h>
+#include <Adafruit_SH110X.h>
 #include <Adafruit_SSD1306.h>
 #include <Arduino.h>
 #include <Wire.h>
 
 #include "Configuracion.h"
 
+enum class TipoDisplay { SSD1306, SH1106 };
+
 class GestorDisplay {
 public:
-  GestorDisplay();
+  explicit GestorDisplay(TipoDisplay tipo);
 
   bool iniciar();
   void mostrarBienvenida();
@@ -25,8 +28,12 @@ public:
 
 private:
   void dibujarEncabezado(const char* titulo);
+  void actualizarPantalla();
 
-  Adafruit_SSD1306 _oled;
+  TipoDisplay _tipo;
+  Adafruit_SSD1306 _ssd1306;
+  Adafruit_SH1106G _sh1106;
+  Adafruit_GFX &_oled; // Los dos controladores comparten las funciones de dibujo.
   bool _inicializado;
 };
 

@@ -9,7 +9,8 @@
 // Instancias globales de los módulos del sistema
 GestorSensores sensores(PIN_DHT22, PIN_POTENCIOMETRO);
 GestorActuadores actuadores(PIN_LED_VERDE, PIN_LED_AZUL);
-GestorDisplay display;
+// Wokwi usa SSD1306; para una pantalla SH1106, cambiar solo el tipo de esta línea.
+GestorDisplay display(TipoDisplay::SSD1306);
 GestorThingSpeak thingSpeak;
 GestorTelegram telegram;
 
