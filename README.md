@@ -8,6 +8,8 @@ La base local está implementada: sensores, alarma por umbral, actuador temporiz
 
 El actuador de demostración es el **LED verde en GPIO 23**. Las funciones se llaman `encenderRele`/`apagarRele` por el comando del enunciado; no accionan el relé físico del kit, que está en GPIO 14. Confirmar el montaje antes de cambiar pines.
 
+El módulo propio para los envíos se llama `GestorHTTPClient`, con una instancia `httpClient` en main. Su implementación pendiente usará `<HTTPClient.h>` del framework Arduino ESP32 para comunicarse con ThingSpeak; no requiere la biblioteca oficial ThingSpeak. Conserva las funciones `iniciar()`, `actualizar(sensores)` y `enviarVoltajePotenciometro(voltaje)`.
+
 ## Compilar y preparar credenciales
 
 Desde la terminal de PlatformIO, ubicada en esta carpeta:

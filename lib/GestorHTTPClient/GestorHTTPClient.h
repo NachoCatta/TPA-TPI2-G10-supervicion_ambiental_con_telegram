@@ -1,13 +1,13 @@
-#ifndef GESTOR_THINGSPEAK_H
-#define GESTOR_THINGSPEAK_H
+#ifndef GESTOR_HTTP_CLIENT_H
+#define GESTOR_HTTP_CLIENT_H
 
 #include <Arduino.h>
 #include "Configuracion.h"
 #include "GestorSensores.h"
 
-class GestorThingSpeak {
+class GestorHTTPClient {
 public:
-    GestorThingSpeak();
+    GestorHTTPClient();
 
     void iniciar();
     void actualizar(const GestorSensores& sensores);
@@ -17,5 +17,5 @@ private:
     unsigned long _ultimoEnvioMs;
 };
 
-#endif // GESTOR_THINGSPEAK_H
+#endif // GESTOR_HTTP_CLIENT_H
 

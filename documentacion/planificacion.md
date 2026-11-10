@@ -46,7 +46,7 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
      * `adafruit/DHT sensor library` y `adafruit/Adafruit Unified Sensor` (o `beegee-tokyo/DHT sensor library for ESPx`) para el DHT22.
      * `adafruit/Adafruit SSD1306`, `adafruit/Adafruit SH110X` y `adafruit/Adafruit GFX Library` para los dos controladores OLED I²C admitidos.
      * `witnessmenow/UniversalTelegramBot` y `bblanchon/ArduinoJson` para la integración con Telegram.
-     * `mathworks/ThingSpeak` (o uso nativo de `HTTPClient.h` para peticiones HTTP GET/POST a ThingSpeak).
+     * `HTTPClient.h`, incluido en Arduino ESP32, para peticiones HTTP GET/POST a ThingSpeak. No se utiliza la dependencia externa `mathworks/ThingSpeak`.
    * Mantener la ruta común de `include/` en `build_flags` para que las bibliotecas encuentren la configuración. El entorno predeterminado es ESP32; `native` se utiliza solo para pruebas de lógica.
 2. **Diseño de la Arquitectura de Librerías Propias (en carpeta `lib/`):**
    * `Configuracion`: Archivo de cabeceras con constantes de pines, intervalos de tiempo, umbrales y credenciales (Wi-Fi, Token Telegram, API Key ThingSpeak).
@@ -54,7 +54,7 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
    * `GestorSensores`: Encapsula la inicialización y lectura no bloqueante del DHT22 y del potenciómetro (conversión ADC a Voltaje y detección de umbral crítico).
    * `GestorActuadores`: Administra los LEDs / Relé y la lógica de encendido temporizado no bloqueante con `millis()`.
    * `GestorDisplay`: Controla la pantalla OLED SSD1306 o SH1106 seleccionada en main. Las vistas de inicio, LED, potenciómetro, DHT22 y comando desconocido comparten el mismo código.
-   * `GestorThingSpeak`: Maneja la conexión HTTP con ThingSpeak para el envío periódico de clima (Temp/Hum) y el envío del voltaje del potenciómetro (`/thingup`).
+   * `GestorHTTPClient`: Módulo propio que implementará envíos a ThingSpeak mediante `HTTPClient.h`: clima periódico (Temp/Hum) y voltaje del potenciómetro (`/thingup`). La clase del framework se llama `HTTPClient`; el gestor propio tiene otro nombre para distinguirlas.
    * `GestorTelegram`: Administra la cola de mensajes, el teclado inline (`/start`), el parseo de comandos (`/clima`, `/rele...`, `/thingup`, `/display...`) y el disparo de alertas automáticas.
 
 ---
@@ -91,7 +91,7 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
    * Implementar verificación de reconexión no bloqueante en caso de caída de red.
    * Encapsularla en `GestorWifi`; actualizar el LED azul mediante llamadas desde main y preparar hora válida para TLS.
    * Implementado: reintentar cada 10 s mediante `millis()`, sin bucle esperando conexión; SDK sin reconexión automática y sin persistir credenciales. `configTime()` solicita hora UTC al conectarse, pero no espera su recepción ni prueba que ya sea válida.
-2. **Cliente HTTP para ThingSpeak (`GestorThingSpeak`):**
+2. **Cliente HTTP para ThingSpeak (`GestorHTTPClient`):**
    * Configurar temporizador no bloqueante (ej. cada 20 o 30 segundos, respetando el límite mínimo de 15 s de ThingSpeak gratuito) para enviar Temperatura (`field1`) y Humedad (`field2`) mediante HTTP GET/POST usando la **Write API Key**.
    * Implementar función dedicada para `/thingup` que envíe el voltaje actual del potenciómetro (`field3`) hacia ThingSpeak y retorne el resultado de la operación.
    * Compartir el control de frecuencia entre envíos periódicos y manuales. Si una solicitud manual no puede enviarse ahora, retornar `false` e informar al usuario; retornar `true` solo cuando el servicio confirme la escritura. No publicar DHT inválido.
@@ -126,8 +126,8 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
          actuadores.actualizar();
          wifi.actualizar();
          actuadores.fijarLedAzul(wifi.estaConectado());
-         thingSpeak.actualizar(sensores);
-         telegram.actualizar(sensores, actuadores, display, thingSpeak);
+         httpClient.actualizar(sensores);
+         telegram.actualizar(sensores, actuadores, display, httpClient);
      }
      ```
    * Las llamadas a inicio/actualización de `GestorWifi` ya están incorporadas. Mantener su lógica dentro de la biblioteca.

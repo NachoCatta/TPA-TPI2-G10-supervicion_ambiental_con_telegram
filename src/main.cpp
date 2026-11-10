@@ -3,7 +3,7 @@
 #include "GestorDisplay.h"
 #include "GestorSensores.h"
 #include "GestorTelegram.h"
-#include "GestorThingSpeak.h"
+#include "GestorHTTPClient.h"
 #include "GestorWifi.h"
 #include <Arduino.h>
 
@@ -12,7 +12,7 @@ GestorSensores sensores(PIN_DHT22, PIN_POTENCIOMETRO);
 GestorActuadores actuadores(PIN_LED_VERDE, PIN_LED_AZUL);
 // Wokwi usa SSD1306; para una pantalla SH1106, cambiar solo el tipo de esta línea.
 GestorDisplay display(TipoDisplay::SSD1306);
-GestorThingSpeak thingSpeak;
+GestorHTTPClient httpClient;
 GestorTelegram telegram;
 GestorWifi wifi;
 
@@ -22,7 +22,7 @@ void setup() {
   actuadores.iniciar();
   display.iniciar();
   wifi.iniciar();
-  thingSpeak.iniciar();
+  httpClient.iniciar();
   telegram.iniciar();
 }
 
@@ -31,6 +31,6 @@ void loop() {
   actuadores.actualizar();
   wifi.actualizar();
   actuadores.fijarLedAzul(wifi.estaConectado());
-  thingSpeak.actualizar(sensores);
-  telegram.actualizar(sensores, actuadores, display, thingSpeak);
+  httpClient.actualizar(sensores);
+  telegram.actualizar(sensores, actuadores, display, httpClient);
 }
