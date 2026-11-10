@@ -1,7 +1,7 @@
 #ifndef ARDUINO_PRUEBA_H
 #define ARDUINO_PRUEBA_H
 
-// Sustituye solamente el hardware usado por sensores y actuadores en las pruebas.
+// Sustituye el hardware y la configuración NTP usados en las pruebas nativas.
 #include <cmath>
 #include <cstdint>
 
@@ -32,5 +32,8 @@ struct SerialPrueba {
   void printf(const char *, ...) {}
 };
 extern SerialPrueba Serial;
+
+void configTime(long gmtOffset, int daylightOffset, const char *servidor1,
+                const char *servidor2 = nullptr, const char *servidor3 = nullptr);
 
 #endif

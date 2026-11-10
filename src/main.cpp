@@ -4,6 +4,7 @@
 #include "GestorSensores.h"
 #include "GestorTelegram.h"
 #include "GestorThingSpeak.h"
+#include "GestorWifi.h"
 #include <Arduino.h>
 
 // Instancias globales de los módulos del sistema
@@ -13,12 +14,14 @@ GestorActuadores actuadores(PIN_LED_VERDE, PIN_LED_AZUL);
 GestorDisplay display(TipoDisplay::SSD1306);
 GestorThingSpeak thingSpeak;
 GestorTelegram telegram;
+GestorWifi wifi;
 
 void setup() {
   Serial.begin(115200);
   sensores.iniciar();
   actuadores.iniciar();
   display.iniciar();
+  wifi.iniciar();
   thingSpeak.iniciar();
   telegram.iniciar();
 }
@@ -26,6 +29,8 @@ void setup() {
 void loop() {
   sensores.actualizar();
   actuadores.actualizar();
+  wifi.actualizar();
+  actuadores.fijarLedAzul(wifi.estaConectado());
   thingSpeak.actualizar(sensores);
   telegram.actualizar(sensores, actuadores, display, thingSpeak);
 }

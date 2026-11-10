@@ -1,6 +1,6 @@
-# Tres tareas pendientes para aportar al repositorio
+# Dos tareas pendientes para aportar al repositorio
 
-Actualizado: 10/11/2026. Estas tareas quedan **sin implementar intencionalmente** para que otros integrantes completen el trabajo. No hay que rehacer los módulos ya existentes ni agregar lógica de control a `main.cpp`.
+Actualizado: 10/11/2026. Wi-Fi ya está implementado. **ThingSpeak y Telegram quedan sin implementar intencionalmente** para que otros integrantes completen el trabajo. Conservamos sus números originales: tareas 2 y 3. No hay que rehacer los módulos ya existentes ni agregar lógica de control a `main.cpp`.
 
 ## Base preparada
 
@@ -9,38 +9,30 @@ Actualizado: 10/11/2026. Estas tareas quedan **sin implementar intencionalmente*
 - Alarma con histéresis y espera entre episodios, incluyendo el segundo episodio sostenido durante la espera.
 - Actuador de demostración (LED verde, GPIO 23): temporización, apagado manual y validación de 1 a 3600 s. Cero no enciende indefinidamente desde la función temporizada.
 - Vistas de OLED disponibles para LED, potenciómetro, DHT y comando desconocido; todavía no son invocadas por Telegram. Soporte preparado para SSD1306 y SH1106, elegido en main mediante `GestorDisplay display(TipoDisplay::SSD1306)` o `TipoDisplay::SH1106`. Se mantiene una sola instancia y las mismas funciones de vistas.
-- Pruebas de lógica en `test/test_logica/`, ejecutables con `pio test -e native` y un compilador C/C++ instalado.
+- Wi-Fi con conexión, reintentos cada 10 s, actualización del LED azul y solicitud de hora NTP al conectarse.
+- 22 pruebas de lógica en `test/test_logica/` y `test/test_wifi/`, ejecutables con `pio test -e native` y un compilador C/C++ instalado.
 
 **Pines:** DHT22 33, potenciómetro 32, LED verde 23, LED azul 2 (según consigna), OLED SDA 21 / SCL 22. El relé físico del kit es GPIO 14 y no está controlado por el código actual. La polaridad del relé y la alimentación del potenciómetro deben verificarse en la placa, no deducirse del dibujo Wokwi.
 
 La [guía del gestor de pantalla](explicacion_display.md) explica la selección entre controladores y cómo deberá utilizarlo el futuro manejador de Telegram. Incluye un guion para la defensa y distingue lo implementado de lo pendiente.
 
-## Tarea 1 — Wi-Fi y puesta en marcha del kit
+## Wi-Fi implementado — antigua tarea 1
 
-**Responsable:** por asignar. **Dependencias:** ninguna de las otras dos tareas.
+**Archivos:** `lib/GestorWifi/GestorWifi.h` y `.cpp`, `Configuracion.h` y las llamadas de integración de `src/main.cpp`.
 
-**Archivos:** crear `lib/GestorWifi/GestorWifi.h` y `.cpp`; agregar su instancia y llamadas en `src/main.cpp`. Configuración compartida en `Configuracion.h` si hace falta. Credenciales reales solo en `include/secrets.h` (ignorado por Git).
+La interfaz es `iniciar()`, `actualizar()` y `estaConectado()`. La conexión se inicia con `WiFi.begin()` y no hay un bucle esperando a que termine. Los reintentos usan `millis()` y `INTERVALO_REINTENTO_WIFI_MS` (10 s). Se desactiva la reconexión automática del SDK para administrar los intentos en un único lugar.
 
-### Implementar
+Al observar una conexión se llama a `configTime()` con los servidores de `Configuracion.h`. La sincronización continúa en segundo plano. **Solicitar NTP no demuestra que ya llegó una hora válida**: comprobar la hora antes de las operaciones TLS de los servicios pendientes. Las credenciales reales siguen en `include/secrets.h`, ignorado por Git.
 
-1. Una interfaz pequeña: `iniciar()`, `actualizar()` y `estaConectado()`. Usar `WiFi.h`, `SECRET_WIFI_SSID` y `SECRET_WIFI_PASSWORD`.
-2. Iniciar la conexión sin un bucle que espere indefinidamente. Revisar el estado y espaciar los reintentos mediante `millis()`.
-3. En main, agregar las llamadas a Wi-Fi y `actuadores.fijarLedAzul(wifi.estaConectado())`. Mantener las llamadas actuales de sensores, actuadores y servicios.
-4. Preparar la sincronización de hora para la validación TLS. La falta de red no debe detener el muestreo ni el temporizador del actuador.
-5. Confirmar en la placa UTN el DHT22, el LED azul, la dirección/controlador OLED y el voltaje del potenciómetro. Para la pantalla, seleccionar en main SSD1306 o SH1106 según el modelo confirmado; las prácticas de Clase 03 con OLED y Práctica 04 utilizan `Adafruit_SH1106G`. El diagrama Wokwi actual utiliza SSD1306. El firmware está preparado con LED verde como actuador; si el grupo elige usar el relé físico, verificar GPIO 14 y su nivel activo antes de adaptar su control y documentación.
+La integración mantiene el main como coordinador: actualiza sensores y actuadores, llama a `wifi.actualizar()` y refleja el estado con `actuadores.fijarLedAzul(wifi.estaConectado())`. Luego conserva las llamadas a los dos servicios todavía pendientes.
 
-### Comprobar para terminar
+Las 8 pruebas nuevas simulan conexión, red ausente/clave incorrecta, caída y recuperación, NTP solicitado una vez por conexión, LED azul, desbordamiento de `millis()` y funcionamiento del temporizador durante reintentos. No establecen conexiones ni reciben hora reales.
 
-- [ ] Compila con `pio run`.
-- [ ] Conecta en Wokwi y con credenciales reales en la placa.
-- [ ] Una contraseña incorrecta o la caída de la red no deja el programa esperando indefinidamente.
-- [ ] Al recuperar la red se reconecta; el LED azul refleja el estado cuando el hardware lo permite.
-- [ ] Un actuador temporizado sigue apagándose mientras se intenta reconectar.
-- [ ] Se anotaron las comprobaciones físicas realizadas y las que no pudieron hacerse. No afirmar validación de placa únicamente por compilar.
+La puesta en marcha real se verifica junto con el cierre de la entrega, no se marca realizada por estas pruebas. Ver las comprobaciones comunes al final del documento.
 
 ## Tarea 2 — Envíos a ThingSpeak
 
-**Responsable:** por asignar. **Dependencias:** Wi-Fi de la tarea 1 para pruebas reales; puede implementarse en paralelo.
+**Responsable:** por asignar. **Dependencias:** usar el módulo Wi-Fi ya integrado; requiere red/canal reales para pruebas de servicio.
 
 **Archivos:** `lib/GestorThingSpeak/GestorThingSpeak.h` y `.cpp`. Mantener la interfaz actual si alcanza:
 
@@ -71,13 +63,13 @@ Referencia: [límites de actualización de ThingSpeak](https://www.mathworks.com
 
 ## Tarea 3 — Telegram, integración y entregable
 
-**Responsable:** por asignar. **Dependencias:** tarea 1 para el bot y tarea 2 para probar `/thingup`.
+**Responsable:** por asignar. **Dependencias:** Wi-Fi ya integrado y tarea 2 para probar `/thingup`.
 
 **Archivos:** `lib/GestorTelegram/GestorTelegram.h` y `.cpp`. Usar las interfaces existentes de sensores, actuadores, display y ThingSpeak. El `.ino` y sus instrucciones de instalación se preparan como parte del cierre de esta tarea.
 
 ### Implementar
 
-1. Consultar mensajes con el intervalo `INTERVALO_TELEGRAM_POLL_MS`. Conservar el certificado raíz configurado; comprobar hora válida y conexión antes de operar. Definir tiempos de espera acotados y limitar el trabajo por iteración para que las demás actualizaciones sigan ejecutándose.
+1. Consultar mensajes con el intervalo `INTERVALO_TELEGRAM_POLL_MS`. Conservar el certificado raíz configurado; comprobar hora válida y conexión antes de operar. `GestorWifi` ya solicita NTP al conectarse, pero la recepción de hora es asíncrona: consultar la hora sin un bucle de espera. Definir tiempos de espera acotados y limitar el trabajo por iteración para que las demás actualizaciones sigan ejecutándose.
 2. Autorizar el `SECRET_CHAT_ID` configurado para controlar el sistema. No reemplazar automáticamente el destinatario de alertas por el último usuario que escribió al bot.
 3. `/start`: bienvenida y teclado **inline**. Procesar también los callbacks de los botones y confirmarlos, no solo los mensajes escritos.
 4. `/clima`: responder temperatura/humedad; si `datosDhtValidos()` es falso, informar el error en vez de presentar el dato anterior como actual.
@@ -98,6 +90,16 @@ Referencia: [límites de actualización de ThingSpeak](https://www.mathworks.com
 - [ ] `/thingup` refleja el resultado verdadero del servicio.
 - [ ] Prueba completa en Wokwi y en placa UTN, incluyendo errores de red y lectura.
 - [ ] Proyecto Wokwi y `.ino` con bibliotecas preparados; compilación y ejecución comprobadas para la entrega.
+
+## Comprobaciones comunes al cierre de la entrega
+
+Estas verificaciones quedan asociadas a la integración de las tareas 2 y 3; no son un tercer módulo a implementar. No se realizaron con las pruebas nativas.
+
+- [ ] Conexión y reconexión reales en Wokwi y en la placa, con y sin credenciales válidas; comprobar LED azul y llegada de hora NTP.
+- [ ] Medir que el temporizador siga apagando el actuador mientras se reintenta y cuando operen los servicios. El código propio no espera la conexión, pero las llamadas al SDK real no se miden con los dobles de prueba.
+- [ ] Confirmar DHT22, LED azul, voltaje del potenciómetro y controlador/dirección OLED. Seleccionar en main SSD1306 o SH1106 según el modelo físico. El diagrama Wokwi actual usa SSD1306; los ejemplos de Clase 03 con OLED y Práctica 04 usan SH1106.
+- [ ] Si se elige usar el relé físico en lugar del LED verde, verificar GPIO 14, polaridad y alimentación antes de adaptar su control.
+- [ ] Registrar pruebas hechas y pendientes; probar también el `.ino` y las bibliotecas entregadas.
 
 ## Forma de trabajar
 

@@ -4,7 +4,7 @@ Proyecto PlatformIO + Wokwi con DHT22, potenciómetro, OLED y control remoto pre
 
 ## Estado del trabajo
 
-La base local está implementada: sensores, alarma por umbral, actuador temporizado y vistas OLED. `setup()` y `loop()` conservan solo llamadas a funciones/métodos. **Wi-Fi, ThingSpeak y los comandos de Telegram están pendientes**, repartidos en [tres tareas para completar en equipo](documentacion/tareas_pendientes.md).
+La base local está implementada: sensores, alarma por umbral, actuador temporizado, vistas OLED y conexión/reconexión Wi-Fi con indicador azul y solicitud de hora NTP. `setup()` y `loop()` conservan solo llamadas a funciones/métodos. **ThingSpeak y los comandos de Telegram están pendientes**, repartidos en [dos tareas para completar en equipo](documentacion/tareas_pendientes.md).
 
 El actuador de demostración es el **LED verde en GPIO 23**. Las funciones se llaman `encenderRele`/`apagarRele` por el comando del enunciado; no accionan el relé físico del kit, que está en GPIO 14. Confirmar el montaje antes de cambiar pines.
 
@@ -21,6 +21,18 @@ Este comando compila únicamente el entorno ESP32 definido como predeterminado. 
 Para usar los servicios, copiar `include/secrets.example.h` a `include/secrets.h` y completar los valores reales. `secrets.h` está excluido de Git. La plantilla permite compilar sin credenciales reales, pero no configura cuentas ni proporciona conectividad.
 
 Para Wokwi se usan `diagram.json` y `wokwi.toml`. La compilación no sustituye una prueba del simulador o de la placa UTN.
+
+## Funcionamiento de Wi-Fi
+
+`GestorWifi` utiliza `WiFi.h`, como la Práctica 06, con reintentos espaciados en lugar de esperar en un `while`. En `setup()` se llama a `wifi.iniciar()` y en cada `loop()` a `wifi.actualizar()`. El LED azul se actualiza con `actuadores.fijarLedAzul(wifi.estaConectado())`.
+
+- Se usa modo estación (`WIFI_STA`), con las credenciales de `secrets.h` o la plantilla Wokwi. No se imprimen contraseñas ni se guardan cambios de credenciales en la memoria persistente del SDK.
+- Si no hay conexión, se inicia un nuevo intento como máximo cada 10 s, según `INTERVALO_REINTENTO_WIFI_MS`. La clase gestiona esos reintentos, con la reconexión automática del SDK desactivada.
+- Al observar cada conexión solicita la hora UTC a `pool.ntp.org` y `time.nist.gov` mediante `configTime()`. Esto inicia NTP en segundo plano; no confirma que la hora ya sea válida. Las tareas de servicios deben comprobarla antes de usar TLS.
+- `estaConectado()` devuelve el último estado observado en `actualizar()`. Estar conectado al punto de acceso no demuestra acceso a Internet ni éxito de Telegram o ThingSpeak.
+- Los cambios de conexión y los intentos se informan por Serial. No se reemplazan las vistas OLED con avisos de red en cada ciclo.
+
+El código propio no agrega `delay()` ni un bucle esperando Wi-Fi o NTP. Los tiempos reales del SDK y del acceso a la red deben comprobarse en Wokwi y en la placa; las pruebas nativas simulan sus respuestas.
 
 ## Elegir la pantalla desde main
 
@@ -54,7 +66,7 @@ $env:PATH = "$env:USERPROFILE\.platformio\packages\toolchain-gccmingw32\bin;$env
 pio test -e native
 ```
 
-Las pruebas compilan las bibliotecas reales de sensores y actuadores. Los archivos de `test/soporte/` sustituyen reloj, GPIO y lecturas; solo se incluyen en el entorno `native`. No verifican sensores reales, calibración eléctrica, OLED ni servicios de Internet.
+Las 22 pruebas compilan las bibliotecas reales: 14 de sensores/actuadores y 8 de Wi-Fi. Estas últimas comprueban intervalos de reintento, caída/recuperación, LED azul, solicitud NTP, desbordamiento de `millis()` y continuidad del temporizador mientras se reintenta. Los archivos de `test/soporte/` sustituyen reloj, GPIO, lecturas, Wi-Fi y configuración NTP; solo se incluyen en el entorno `native`. No verifican radio real, recepción de hora, calibración eléctrica, OLED ni servicios de Internet.
 
 ## Reglas de funcionamiento acordadas
 

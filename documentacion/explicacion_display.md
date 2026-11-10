@@ -6,13 +6,13 @@ Guía para estudiar el código y explicarlo en la defensa. Describe la implement
 
 Las vistas de pantalla y la selección entre SSD1306 y SH1106 están implementadas. Se comprobó la compilación del firmware eligiendo cada controlador. La pantalla física y la ejecución en Wokwi todavía requieren prueba.
 
-**Telegram no está funcionando todavía:** su función `actualizar()` está vacía. Wi-Fi y los envíos a ThingSpeak también están pendientes. La firma de Telegram ya recibe el gestor de pantalla, pero todavía no ejecuta sus funciones. Las tres tareas para completar el TP están en [tareas pendientes](tareas_pendientes.md).
+**Telegram no está funcionando todavía:** su función `actualizar()` está vacía y los envíos a ThingSpeak también están pendientes. Wi-Fi ya está implementado con reintentos e inicio de sincronización NTP. La firma de Telegram ya recibe el gestor de pantalla, pero todavía no ejecuta sus funciones. Las dos tareas para completar el TP están en [tareas pendientes](tareas_pendientes.md).
 
-Las 14 pruebas nativas existentes comprueban sensores y actuadores; no comprueban el funcionamiento del OLED ni la comunicación por Telegram.
+Las 22 pruebas nativas existentes comprueban sensores, actuadores y lógica Wi-Fi simulada; no comprueban el funcionamiento del OLED ni la comunicación real por Wi-Fi o Telegram.
 
 ## La idea general
 
-El main coordina el sistema mediante llamadas. En `setup()` inicializa los módulos; en `loop()` actualiza sensores, actuadores y las interfaces de los servicios pendientes. La lógica de cada componente queda en su biblioteca.
+El main coordina el sistema mediante llamadas. En `setup()` inicializa los módulos; en `loop()` actualiza sensores, actuadores, Wi-Fi, el indicador azul y las interfaces de los servicios pendientes. La lógica de cada componente queda en su biblioteca.
 
 Para la pantalla, el resto del programa trabaja con un único objeto llamado `display`, de la clase `GestorDisplay`. Sus funciones expresan qué información queremos mostrar:
 

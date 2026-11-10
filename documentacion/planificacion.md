@@ -1,7 +1,7 @@
 # Plan de Trabajo - Trabajo Práctico Integrador N°2 (TA4k01/26)
 **Proyecto:** Supervisión Ambiental y Actuación Remota con ESP32, ThingSpeak y Bot de Telegram
 
-**Estado al 10/11/2026:** se corrigió la compilación y se preparó la base de sensores y actuadores con pruebas de lógica. Wi-Fi, ThingSpeak y Telegram quedan pendientes para aportes de otros integrantes. Ver [las tres tareas, archivos y criterios de aceptación](tareas_pendientes.md).
+**Estado al 10/11/2026:** compilación corregida, sensores/actuadores y selección OLED preparados. Wi-Fi ya está implementado con reintentos, LED azul y solicitud NTP. Las 22 pruebas nativas pasan. ThingSpeak y Telegram quedan pendientes para aportes de otros integrantes. Ver [las dos tareas, archivos y criterios de aceptación](tareas_pendientes.md). La ejecución en Wokwi y en placa UTN sigue pendiente de comprobación real.
 
 ---
 
@@ -50,7 +50,7 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
    * Mantener la ruta común de `include/` en `build_flags` para que las bibliotecas encuentren la configuración. El entorno predeterminado es ESP32; `native` se utiliza solo para pruebas de lógica.
 2. **Diseño de la Arquitectura de Librerías Propias (en carpeta `lib/`):**
    * `Configuracion`: Archivo de cabeceras con constantes de pines, intervalos de tiempo, umbrales y credenciales (Wi-Fi, Token Telegram, API Key ThingSpeak).
-   * `GestorWifi` (pendiente, tarea 1): conexión, consulta de estado y reintentos espaciados; main solo invoca su interfaz.
+   * `GestorWifi` (implementado): conexión en modo estación, consulta de estado, reintentos espaciados y solicitud de sincronización NTP; main solo invoca su interfaz y actualiza el indicador azul.
    * `GestorSensores`: Encapsula la inicialización y lectura no bloqueante del DHT22 y del potenciómetro (conversión ADC a Voltaje y detección de umbral crítico).
    * `GestorActuadores`: Administra los LEDs / Relé y la lógica de encendido temporizado no bloqueante con `millis()`.
    * `GestorDisplay`: Controla la pantalla OLED SSD1306 o SH1106 seleccionada en main. Las vistas de inicio, LED, potenciómetro, DHT22 y comando desconocido comparten el mismo código.
@@ -60,7 +60,7 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
 ---
 
 ### Etapa 2: Desarrollo de Capa de Hardware (Sensores, Actuadores y OLED)
-**Estado:** bibliotecas implementadas y lógica cubierta por pruebas nativas; la comprobación de periféricos reales queda incluida en la tarea 1.
+**Estado:** bibliotecas implementadas y lógica cubierta por pruebas nativas; la comprobación de periféricos reales queda incluida en el cierre de integración de la entrega.
 
 1. **Módulo de Sensores (`GestorSensores`):**
    * Implementar lectura periódica del DHT22 (cada ~2-5 segundos) validando errores de lectura (`isnan`).
@@ -84,12 +84,13 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
 ---
 
 ### Etapa 3: Conectividad Wi-Fi e Integración con ThingSpeak
-**Estado:** pendiente. Repartida en tareas 1 (Wi-Fi) y 2 (ThingSpeak).
+**Estado:** Wi-Fi implementado (antigua tarea 1); ThingSpeak pendiente (tarea 2). Las pruebas reales de red y servicios se completan junto con la entrega.
 
 1. **Conexión Wi-Fi (`WiFi.h`):**
    * Configurar conexión automática a la red Wi-Fi (soportando `Wokwi-GUEST` para el simulador y credenciales reales para la placa física UTN).
    * Implementar verificación de reconexión no bloqueante en caso de caída de red.
    * Encapsularla en `GestorWifi`; actualizar el LED azul mediante llamadas desde main y preparar hora válida para TLS.
+   * Implementado: reintentar cada 10 s mediante `millis()`, sin bucle esperando conexión; SDK sin reconexión automática y sin persistir credenciales. `configTime()` solicita hora UTC al conectarse, pero no espera su recepción ni prueba que ya sea válida.
 2. **Cliente HTTP para ThingSpeak (`GestorThingSpeak`):**
    * Configurar temporizador no bloqueante (ej. cada 20 o 30 segundos, respetando el límite mínimo de 15 s de ThingSpeak gratuito) para enviar Temperatura (`field1`) y Humedad (`field2`) mediante HTTP GET/POST usando la **Write API Key**.
    * Implementar función dedicada para `/thingup` que envíe el voltaje actual del potenciómetro (`field3`) hacia ThingSpeak y retorne el resultado de la operación.
@@ -114,7 +115,7 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
 ---
 
 ### Etapa 5: Integración en `main.cpp`, Exportación a `.ino` y Pruebas
-**Estado:** main y vistas preparados. Pruebas integrales, exportación `.ino` y cierre de entrega pendientes dentro de la tarea 3, con apoyo de las tareas 1 y 2.
+**Estado:** main integrado con Wi-Fi, indicador azul y vistas preparadas. Pruebas integrales, exportación `.ino` y cierre de entrega pendientes dentro de la tarea 3, con apoyo de la tarea 2.
 
 1. **Estructuración limpia de `main.cpp`:**
    * `setup()` únicamente con llamadas de inicialización (`sistema.iniciar()`).
@@ -123,11 +124,13 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
      void loop() {
          sensores.actualizar();
          actuadores.actualizar();
+         wifi.actualizar();
+         actuadores.fijarLedAzul(wifi.estaConectado());
          thingSpeak.actualizar(sensores);
          telegram.actualizar(sensores, actuadores, display, thingSpeak);
      }
      ```
-   * Incorporar también las llamadas a inicio/actualización de `GestorWifi` cuando se complete la tarea 1. No llevar su lógica al main.
+   * Las llamadas a inicio/actualización de `GestorWifi` ya están incorporadas. Mantener su lógica dentro de la biblioteca.
 2. **Pruebas integrales en Wokwi:**
    * Verificar lectura de DHT22, variación del potenciómetro, disparo de alerta automática, respuesta de botones inline en Telegram, recepción de datos en ThingSpeak y visualización en el OLED.
 3. **Preparación de entregable para la cátedra (`.ino` + Wokwi):**

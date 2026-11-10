@@ -37,6 +37,11 @@ constexpr unsigned long INTERVALO_THINGSPEAK_MS =
 constexpr unsigned long INTERVALO_TELEGRAM_POLL_MS = 1000UL; // 1 segundo
 constexpr unsigned long COOLDOWN_ALERTA_VOLTAJE_MS =
     30000UL; // 30 segundos mínimo entre alertas
+constexpr unsigned long INTERVALO_REINTENTO_WIFI_MS = 10000UL; // 10 s entre intentos
+
+// Servidores para preparar la hora UTC necesaria para validar certificados TLS.
+constexpr char SERVIDOR_NTP_PRIMARIO[] = "pool.ntp.org";
+constexpr char SERVIDOR_NTP_SECUNDARIO[] = "time.nist.gov";
 
 // 4. CAMPOS DE THINGSPEAK
 constexpr uint8_t FIELD_TEMPERATURA = 1;
