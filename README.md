@@ -4,7 +4,7 @@ Proyecto PlatformIO + Wokwi con DHT22, potenciómetro, OLED y control remoto pre
 
 ## Estado del trabajo
 
-La base local está implementada: sensores, alarma por umbral, actuador temporizado, vistas OLED y conexión/reconexión Wi-Fi con indicador azul y solicitud de hora NTP. `setup()` y `loop()` conservan solo llamadas a funciones/métodos. **ThingSpeak y los comandos de Telegram están pendientes**, repartidos en [dos tareas para completar en equipo](documentacion/tareas_pendientes.md).
+La base local está implementada: sensores, alarma por umbral, actuador temporizado, vistas OLED y conexión/reconexión Wi-Fi con indicador azul y solicitud de hora NTP. `setup()` y `loop()` conservan solo llamadas a funciones/métodos. **Telegram ya está integrado** con comandos, callbacks inline y alertas pendientes; ThingSpeak continúa pendiente en la tarea 2. Para el sketch de Arduino IDE, consultar [sus instrucciones](documentacion/arduino_ide.md).
 
 El actuador de demostración es el **LED verde en GPIO 23**. Las funciones se llaman `encenderRele`/`apagarRele` por el comando del enunciado; no accionan el relé físico del kit, que está en GPIO 14. Confirmar el montaje antes de cambiar pines.
 
@@ -75,7 +75,7 @@ Las 22 pruebas compilan las bibliotecas reales: 14 de sensores/actuadores y 8 de
 - `/releon <segundos>` deberá aceptar enteros entre 1 y 3600 (máximo configurable en `Configuracion.h`). `encenderReleTemporizado()` devuelve `false` si el valor es inválido y conserva la salida/temporización anterior. `/releoff` deberá apagar inmediatamente.
 - El potenciómetro se informa en voltios usando `analogReadMilliVolts()`. El ADC bruto se conserva para porcentaje y barra. Validar las medidas con multímetro en la placa.
 - La alarma se activa desde 2,50 V y se rearma al bajar a 2,35 V. Genera un evento por episodio y espera al menos 30 s entre eventos. Si un segundo episodio sigue activo al vencer esa espera, genera su evento. Si termina antes, no genera un aviso tardío de ese episodio. El muestreo normal es cada 250 ms.
-- `consumirEventoAlertaCritica()` retira un evento local, no confirma un envío a Telegram. El módulo pendiente de Telegram deberá conservar un aviso por enviar si falla la red.
+- `consumirEventoAlertaCritica()` retira un evento local, no confirma un envío a Telegram. Telegram conserva un único aviso pendiente y lo reintenta si falla la red.
 - `datosDhtValidos()` refleja el resultado de la última lectura. Los getters conservan el último dato bueno; antes de publicarlo o mostrarlo como actual hay que comprobar esa bandera.
 
 La [planificación](documentacion/planificacion.md) describe las etapas. Los archivos y criterios de aceptación de cada aporte están en [tareas pendientes](documentacion/tareas_pendientes.md).

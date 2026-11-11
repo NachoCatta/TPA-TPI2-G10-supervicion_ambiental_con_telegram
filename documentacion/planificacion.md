@@ -1,7 +1,7 @@
 # Plan de Trabajo - Trabajo Práctico Integrador N°2 (TA4k01/26)
 **Proyecto:** Supervisión Ambiental y Actuación Remota con ESP32, ThingSpeak y Bot de Telegram
 
-**Estado al 10/11/2026:** compilación corregida, sensores/actuadores y selección OLED preparados. Wi-Fi ya está implementado con reintentos, LED azul y solicitud NTP. Las 22 pruebas nativas pasan. ThingSpeak y Telegram quedan pendientes para aportes de otros integrantes. Ver [las dos tareas, archivos y criterios de aceptación](tareas_pendientes.md). La ejecución en Wokwi y en placa UTN sigue pendiente de comprobación real.
+**Estado al 10/11/2026:** compilación corregida, sensores/actuadores, selección OLED y Telegram preparados. Wi-Fi ya está implementado con reintentos, LED azul y solicitud NTP. ThingSpeak continúa pendiente. La ejecución en Wokwi y en placa UTN sigue pendiente de comprobación real. Ver [las tareas, archivos y criterios de aceptación](tareas_pendientes.md).
 
 ---
 
@@ -99,7 +99,7 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
 ---
 
 ### Etapa 4: Integración del Bot de Telegram y Comandos Remotos
-**Estado:** pendiente, tarea 3. La configuración del certificado existe, pero no hay consultas de mensajes ni comandos implementados.
+**Estado:** implementación local completada; falta la prueba integral con credenciales y red reales. La configuración conserva el certificado raíz, valida la hora NTP y no usa `setInsecure()`.
 
 1. **Configuración de Cliente Seguro (`WiFiClientSecure`):**
    * Configurar el cliente TLS con certificado raíz, hora válida y el **Bot Token**. Mantener la verificación del servidor; no utilizar `setInsecure()` como alternativa habitual.
@@ -115,7 +115,7 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
 ---
 
 ### Etapa 5: Integración en `main.cpp`, Exportación a `.ino` y Pruebas
-**Estado:** main integrado con Wi-Fi, indicador azul y vistas preparadas. Pruebas integrales, exportación `.ino` y cierre de entrega pendientes dentro de la tarea 3, con apoyo de la tarea 2.
+**Estado:** main integrado con Wi-Fi, indicador azul, vistas y Telegram. El adaptador [`supervision_ambiental.ino`](../supervision_ambiental.ino) conserva una sola fuente de `setup()`/`loop()`; faltan las pruebas integrales y el cierre de entrega.
 
 1. **Estructuración limpia de `main.cpp`:**
    * `setup()` únicamente con llamadas de inicialización (`sistema.iniciar()`).
@@ -164,4 +164,3 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
    * `/displaydht`: Muestra la temperatura y humedad del sensor DHT22 en la pantalla OLED.
    * Cualquier otra variante de `/display...` mostrará `"Comando no identificado"` en la pantalla OLED.
 4. **Formato del comando del Relé:** `/releon <segundos>` con entero entre 1 y 3600; `/releoff` apaga inmediatamente y no acepta parámetros. Documentar esta interpretación del formato del enunciado al implementar los comandos.
-
