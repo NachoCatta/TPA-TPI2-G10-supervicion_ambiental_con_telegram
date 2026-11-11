@@ -16,6 +16,7 @@ public:
   explicit GestorDisplay(TipoDisplay tipo);
 
   bool iniciar();
+  bool estaInicializado() const;
   void mostrarBienvenida();
   void mostrarEstadoWifi(bool conectado, const String& ssid, const String& ip);
 

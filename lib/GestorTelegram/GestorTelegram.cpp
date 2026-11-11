@@ -1,38 +1,17 @@
 #include "GestorTelegram.h"
+#include "ComandoRele.h"
 
-#include <climits>
 #include <WiFi.h>
 #include <time.h>
 
 namespace {
-constexpr unsigned long TELEGRAM_CLIENT_TIMEOUT_MS = 3000UL;
+constexpr unsigned long TELEGRAM_CLIENT_TIMEOUT_SEG = 3UL;
+constexpr unsigned int TELEGRAM_RESPUESTA_TIMEOUT_MS = 3000U;
 constexpr unsigned long INTERVALO_REINTENTO_ALERTA_MS = 5000UL;
 constexpr time_t EPOCH_MINIMO_VALIDO = 1700000000;
 
 bool horaValida() {
   return time(nullptr) >= EPOCH_MINIMO_VALIDO;
-}
-
-bool parsearSegundos(const String &argumento, unsigned long &segundos) {
-  if (argumento.length() == 0) {
-    return false;
-  }
-
-  unsigned long valor = 0;
-  for (uint16_t i = 0; i < argumento.length(); ++i) {
-    char caracter = argumento.charAt(i);
-    if (caracter < '0' || caracter > '9') {
-      return false;
-    }
-    unsigned long digito = static_cast<unsigned long>(caracter - '0');
-    if (valor > (ULONG_MAX - digito) / 10UL) {
-      return false;
-    }
-    valor = valor * 10UL + digito;
-  }
-
-  segundos = valor;
-  return true;
 }
 
 String tecladoPrincipal() {
@@ -54,7 +33,11 @@ GestorTelegram::GestorTelegram()
 
 void GestorTelegram::iniciar() {
   _clienteSeguro.setCACert(TELEGRAM_CERTIFICATE_ROOT);
-  _clienteSeguro.setTimeout(TELEGRAM_CLIENT_TIMEOUT_MS);
+  _clienteSeguro.setTimeout(TELEGRAM_CLIENT_TIMEOUT_SEG);
+  static_cast<Stream &>(_clienteSeguro).setTimeout(TELEGRAM_RESPUESTA_TIMEOUT_MS);
+  _clienteSeguro.setHandshakeTimeout(TELEGRAM_CLIENT_TIMEOUT_SEG);
+  _bot.longPoll = 0;
+  _bot.waitForResponse = TELEGRAM_RESPUESTA_TIMEOUT_MS;
 }
 
 bool GestorTelegram::chatAutorizado(const String &chatId) const {
@@ -139,10 +122,9 @@ void GestorTelegram::procesarComando(
   }
 
   if (comando.startsWith(F("/releon"))) {
-    String argumento = comando.substring(8);
-    argumento.trim();
     unsigned long segundos = 0;
-    if (argumento.length() == 0 || !parsearSegundos(argumento, segundos) ||
+    if (!parsearComandoRele(comando.c_str(), MAX_TIEMPO_RELE_SEGUNDOS,
+                            segundos) ||
         !actuadores.encenderReleTemporizado(segundos)) {
       _bot.sendMessage(chatId, F("Uso: /releon <segundos>, entre 1 y 3600."),
                        "");
@@ -173,6 +155,10 @@ void GestorTelegram::procesarComando(
   }
 
   if (comando == F("/displayled")) {
+    if (!display.estaInicializado()) {
+      _bot.sendMessage(chatId, F("No se pudo inicializar el display."), "");
+      return;
+    }
     display.mostrarEstadoLed(actuadores.estaReleEncendido(),
                              actuadores.estaLedAzulEncendido(),
                              actuadores.segundosRestantesRele());
@@ -182,6 +168,10 @@ void GestorTelegram::procesarComando(
   }
 
   if (comando == F("/displaypot")) {
+    if (!display.estaInicializado()) {
+      _bot.sendMessage(chatId, F("No se pudo inicializar el display."), "");
+      return;
+    }
     sensores.forzarLecturaPotenciometro();
     display.mostrarEstadoPotenciometro(
         sensores.obtenerVoltajePot(), sensores.obtenerValorAdcPot(),
@@ -192,6 +182,10 @@ void GestorTelegram::procesarComando(
   }
 
   if (comando == F("/displaydht")) {
+    if (!display.estaInicializado()) {
+      _bot.sendMessage(chatId, F("No se pudo inicializar el display."), "");
+      return;
+    }
     display.mostrarEstadoDht(sensores.obtenerTemperatura(),
                              sensores.obtenerHumedad(),
                              sensores.datosDhtValidos());
@@ -206,13 +200,14 @@ void GestorTelegram::procesarComando(
 }
 
 void GestorTelegram::actualizarAlerta(GestorSensores &sensores) {
-  if (_hayAlertaPendiente || !sensores.consumirEventoAlertaCritica()) {
+  float voltaje = 0;
+  if (_hayAlertaPendiente || !sensores.consumirEventoAlertaCritica(voltaje)) {
     return;
   }
 
   _mensajeAlertaPendiente = F("ALERTA: el voltaje del potenciometro supero "
                               "el umbral critico: ");
-  _mensajeAlertaPendiente += String(sensores.obtenerVoltajePot(), 2);
+  _mensajeAlertaPendiente += String(voltaje, 2);
   _mensajeAlertaPendiente += F(" V.");
   _hayAlertaPendiente = true;
 }

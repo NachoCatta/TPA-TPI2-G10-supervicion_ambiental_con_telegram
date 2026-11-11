@@ -1,7 +1,7 @@
 # Plan de Trabajo - Trabajo Práctico Integrador N°2 (TA4k01/26)
 **Proyecto:** Supervisión Ambiental y Actuación Remota con ESP32, ThingSpeak y Bot de Telegram
 
-**Estado al 10/11/2026:** compilación corregida, sensores/actuadores, selección OLED, ThingSpeak y Telegram preparados. Wi-Fi ya está implementado con reintentos, LED azul y solicitud NTP. La ejecución en Wokwi y en placa UTN sigue pendiente de comprobación real. Ver [las tareas, archivos y criterios de aceptación](tareas_pendientes.md).
+**Estado al 11/11/2026:** sensores/actuadores, selección OLED, ThingSpeak y Telegram implementados. Wi-Fi incluye reintentos, LED azul y solicitud NTP. Pasaron 27 pruebas nativas (3 del parser, 16 de lógica y 8 de Wi-Fi) y Cppcheck no emitió diagnósticos sobre el código propio analizado. La ejecución en Wokwi, la placa UTN y la prueba integral del bot y los servicios reales siguen pendientes. Ver [las tareas, archivos y criterios de aceptación](tareas_pendientes.md).
 
 ---
 
@@ -10,12 +10,12 @@
 El objetivo del proyecto es desarrollar un sistema embebido basado en el microcontrolador **ESP32** (simulado en **Wokwi con PlatformIO** y desplegable en la **placa de desarrollo física Evaluation Board V1.0 de la UTN**) capaz de:
 1. **Monitorear variables ambientales y analógicas:** Temperatura y humedad relativa mediante un sensor **DHT22**, y nivel de tensión mediante un **potenciómetro**.
 2. **Visualizar estados localmente:** Mostrar información de los componentes y diagnósticos en una pantalla **OLED I²C (SSD1306 o SH1106, seleccionable desde main)** e indicadores luminosos (**LED verde y LED azul**).
-3. **Reportar telemetría a la nube (IoT):** Enviar periódicamente temperatura y humedad, así como lecturas de tensión bajo demanda, hacia un canal de **ThingSpeak** mediante solicitudes HTTP.
+3. **Reportar telemetría a la nube (IoT):** Enviar periódicamente temperatura y humedad, así como lecturas de tensión bajo demanda, hacia un canal de **ThingSpeak** mediante solicitudes HTTPS.
 4. **Interactuar remotamente vía Telegram:** Integrar un **Bot de Telegram** con menú interactivo (*inline keyboard*), consulta de variables, control temporizado no bloqueante de salidas digitales, visualización en pantalla OLED y envío de alertas automáticas por umbral crítico.
 
 ### Requerimientos Arquitectónicos Clave
 * **Modularidad y Librerías Propias:** El archivo principal (`main.cpp` / sketch `.ino`) debe mantener la función `loop()` lo más limpia posible, delegando toda la lógica de negocio a módulos/librerías propias bien estructuradas.
-* **Temporización sin esperas deliberadas:** Gestionar las tareas periódicas y el apagado del actuador mediante `millis()`, sin agregar `delay()` al flujo principal. Las lecturas y solicitudes de red pueden ser síncronas: acotar sus tiempos de espera y comprobar el apagado del actuador también cuando falla la conexión. Usar `millis()` no garantiza por sí solo una ejecución 100% no bloqueante.
+* **Temporización sin esperas deliberadas:** Gestionar las tareas periódicas con `millis()` y el vencimiento del actuador con un temporizador independiente, sin agregar `delay()` al flujo principal. Las lecturas y solicitudes de red pueden ser síncronas: acotar sus tiempos de espera y comprobar el apagado del actuador también cuando falla la conexión.
 * **Portabilidad a Placa UTN (.ino):** El código debe poder ejecutarse tanto en el entorno PlatformIO + Wokwi como exportarse en formato de sketch `.ino` compatible con la placa física de la cátedra.
 
 ---
@@ -52,9 +52,9 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
    * `Configuracion`: Archivo de cabeceras con constantes de pines, intervalos de tiempo, umbrales y credenciales (Wi-Fi, Token Telegram, API Key ThingSpeak).
    * `GestorWifi` (implementado): conexión en modo estación, consulta de estado, reintentos espaciados y solicitud de sincronización NTP; main solo invoca su interfaz y actualiza el indicador azul.
    * `GestorSensores`: Encapsula la inicialización y lectura no bloqueante del DHT22 y del potenciómetro (conversión ADC a Voltaje y detección de umbral crítico).
-   * `GestorActuadores`: Administra los LEDs / Relé y la lógica de encendido temporizado no bloqueante con `millis()`.
+   * `GestorActuadores`: Administra los LEDs / Relé y el apagado temporizado independiente del ciclo principal.
    * `GestorDisplay`: Controla la pantalla OLED SSD1306 o SH1106 seleccionada en main. Las vistas de inicio, LED, potenciómetro, DHT22 y comando desconocido comparten el mismo código.
-   * `GestorThingSpeak`: Maneja la conexión HTTP con ThingSpeak para el envío periódico de clima (Temp/Hum) y el envío del voltaje del potenciómetro (`/thingup`).
+   * `GestorThingSpeak`: Maneja la conexión HTTPS con ThingSpeak para el envío periódico de clima (Temp/Hum) y el envío del voltaje del potenciómetro (`/thingup`).
    * `GestorTelegram`: Administra la cola de mensajes, el teclado inline (`/start`), el parseo de comandos (`/clima`, `/rele...`, `/thingup`, `/display...`) y el disparo de alertas automáticas.
 
 ---
@@ -70,8 +70,8 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
 2. **Módulo de Actuadores (`GestorActuadores`):**
    * Configurar `GPIO 23` (LED verde) y `GPIO 2` (LED azul) como salidas digitales.
    * Implementar máquina de estados no bloqueante para el comando `/rele<on/off> <time>`:
-     * Al activar con tiempo $t$ segundos, guardar `tiempoInicio = millis()` y `duracionMs = t * 1000`.
-     * En cada iteración de `actualizar()`, verificar si `millis() - tiempoInicio >= duracionMs` para apagar automáticamente la salida sin detener el microcontrolador.
+     * Al activar con tiempo $t$ segundos, programar un temporizador de una sola ejecución para apagar la salida.
+     * La expiración no depende de que el ciclo principal termine una operación de red.
      * `encenderReleTemporizado()` acepta 1 a 3600 segundos y retorna `bool`; un valor inválido no modifica el estado anterior. `/releoff` deberá apagar inmediatamente y rechazar argumentos adicionales. Validar texto y rango antes de activar desde Telegram.
 3. **Módulo de Pantalla OLED (`GestorDisplay`):**
    * Inicializar bus I²C (`GPIO 21` / `GPIO 22`) y el controlador elegido en dirección `0x3C`: `GestorDisplay display(TipoDisplay::SSD1306)` para el diagrama actual, o `TipoDisplay::SH1106` para una pantalla física de ese modelo. Solo se inicializa el controlador seleccionado.
@@ -84,17 +84,17 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
 ---
 
 ### Etapa 3: Conectividad Wi-Fi e Integración con ThingSpeak
-**Estado:** Wi-Fi implementado (antigua tarea 1); ThingSpeak pendiente (tarea 2). Las pruebas reales de red y servicios se completan junto con la entrega.
+**Estado:** Wi-Fi implementado (antigua tarea 1); ThingSpeak implementado. Las pruebas reales de red y servicios se completan junto con la entrega.
 
 1. **Conexión Wi-Fi (`WiFi.h`):**
    * Configurar conexión automática a la red Wi-Fi (soportando `Wokwi-GUEST` para el simulador y credenciales reales para la placa física UTN).
    * Implementar verificación de reconexión no bloqueante en caso de caída de red.
    * Encapsularla en `GestorWifi`; actualizar el LED azul mediante llamadas desde main y preparar hora válida para TLS.
    * Implementado: reintentar cada 10 s mediante `millis()`, sin bucle esperando conexión; SDK sin reconexión automática y sin persistir credenciales. `configTime()` solicita hora UTC al conectarse, pero no espera su recepción ni prueba que ya sea válida.
-2. **Cliente HTTP para ThingSpeak (`GestorThingSpeak`):**
-   * Configurar temporizador no bloqueante (ej. cada 20 o 30 segundos, respetando el límite mínimo de 15 s de ThingSpeak gratuito) para enviar Temperatura (`field1`) y Humedad (`field2`) mediante HTTP GET/POST usando la **Write API Key**.
+2. **Cliente HTTPS para ThingSpeak (`GestorThingSpeak`):**
+   * Configurar temporizador no bloqueante (ej. cada 20 o 30 segundos, respetando el límite mínimo de 15 s de ThingSpeak gratuito) para enviar Temperatura (`field1`) y Humedad (`field2`) mediante HTTPS usando la **Write API Key**.
    * Implementar función dedicada para `/thingup` que envíe el voltaje actual del potenciómetro (`field3`) hacia ThingSpeak y retorne el resultado de la operación.
-   * Compartir el control de frecuencia entre envíos periódicos y manuales. Si una solicitud manual no puede enviarse ahora, retornar `false` e informar al usuario; retornar `true` solo cuando el servicio confirme la escritura. No publicar DHT inválido.
+   * Compartir el control de frecuencia entre envíos periódicos y manuales: esperar 15,5 s desde el final del intento GET, incluso ante una respuesta fallida. Si una solicitud manual no puede enviarse ahora, retornar `false` e informar al usuario; retornar `true` solo cuando el servicio confirme la escritura. No publicar DHT inválido.
 
 ---
 

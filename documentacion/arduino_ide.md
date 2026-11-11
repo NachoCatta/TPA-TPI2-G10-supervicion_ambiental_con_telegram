@@ -1,25 +1,48 @@
-# Sketch para Arduino IDE
+# Exportar y compilar en Arduino IDE
 
-El archivo [`supervision_ambiental.ino`](../supervision_ambiental.ino) es un
-adaptador para abrir el proyecto desde Arduino IDE. Incluye
-[`src/main.cpp`](../src/main.cpp), que es la única fuente de `setup()` y
-`loop()`; no se debe copiar ni modificar esa lógica en el `.ino`.
+La fuente del proyecto está en `src/`, `lib/` e `include/`. El archivo
+`supervision_ambiental.ino` de la raíz es una plantilla para el exportador:
+no se abre directamente, porque el nombre de la carpeta del repositorio no
+coincide con el del sketch y Arduino necesita encontrar las bibliotecas locales.
 
-## Preparación
+1. Instalar Python 3 y ejecutar desde la raíz del repositorio:
 
-1. Abrir la carpeta del proyecto desde Arduino IDE y seleccionar una placa
-   ESP32 Dev Module.
-2. Instalar las bibliotecas `DHT sensor library`, `Adafruit Unified Sensor`,
-   `Adafruit GFX Library`, `Adafruit SSD1306`, `Adafruit SH110X`,
-   `UniversalTelegramBot` y `ArduinoJson` desde el gestor de bibliotecas.
-3. Mantener las carpetas de [`lib/`](../lib/) disponibles como bibliotecas del
-   sketch, o agregar sus rutas al include path de la configuración de Arduino
-   CLI/IDE. No se deben duplicar ni editar por separado.
-4. Copiar [`include/secrets.example.h`](../include/secrets.example.h) como
-   `include/secrets.h` y completar las credenciales. El archivo real no debe
-   versionarse.
+   ```sh
+   python scripts/exportar_arduino.py
+   ```
 
-PlatformIO sigue siendo el entorno reproducible recomendado porque ya configura
-el include path de `include/` y compila automáticamente las bibliotecas de
-`lib/`. Si se modifica una biblioteca, el `.ino` no requiere regeneración:
-vuelve a incluir los mismos archivos del proyecto.
+2. Abrir `build/arduino/supervision_ambiental/supervision_ambiental.ino`
+   en Arduino IDE. La carpeta generada está excluida de Git y contiene copias
+   de las fuentes vigentes al exportar. Volver a generarla después de cada
+   cambio: primero retirar esa carpeta y luego ejecutar el comando otra vez.
+   El script no sobrescribe una exportación existente.
+3. En el Gestor de placas instalar **esp32 by Espressif Systems**, versión
+   2.0.17, y seleccionar **DOIT ESP32 DEVKIT V1**. Si falta el índice, agregar
+   `https://espressif.github.io/arduino-esp32/package_esp32_index.json` a las
+   URL adicionales del Gestor de placas.
+4. En el Gestor de bibliotecas instalar DHT sensor library, Adafruit Unified
+   Sensor, Adafruit SSD1306, Adafruit SH110X, Adafruit GFX Library,
+   Adafruit BusIO, UniversalTelegramBot y ArduinoJson **6.x** (no 7.x).
+   WiFi, WiFiClientSecure, HTTPClient y Wire vienen con el core ESP32.
+5. Compilar con Verificar. Para cargar en una placa, seleccionar además el puerto
+   serie apropiado y usar Subir. Monitor serie: 115200 baudios.
+
+Por defecto se exporta solo `secrets.example.h`, sin las credenciales reales.
+Para uso privado local, crear `include/secrets.h` a partir del ejemplo y ejecutar
+`python scripts/exportar_arduino.py --con-secretos` en una exportación nueva.
+Esa carpeta contiene credenciales: no compartirla ni subirla. No editar las
+copias generadas como fuente principal; editar el repositorio y volver a exportar.
+
+Arduino compila recursivamente `src/`; por eso el `.ino` no incluye
+`main.cpp`. Las cabeceras de las bibliotecas propias se copian junto a los
+fuentes para que sus inclusiones se resuelvan sin opciones adicionales.
+Ver [especificación oficial del sketch](https://docs.arduino.cc/arduino-cli/sketch-specification/).
+
+## Verificación de compilación
+
+El 11 de noviembre de 2026 se compiló la exportación sin credenciales con
+Arduino CLI 1.6.0, core ESP32 2.0.17, placa
+`esp32:esp32:esp32doit-devkit-v1` y ArduinoJson 6.21.6. La compilación terminó
+sin errores: 972949 de 1310720 bytes de programa (74 %) y 48056 de 327680
+bytes de memoria global (14 %). Esta verificación no incluye carga ni prueba
+en una placa física.

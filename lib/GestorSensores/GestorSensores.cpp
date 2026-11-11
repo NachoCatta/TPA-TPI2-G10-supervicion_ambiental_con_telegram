@@ -12,6 +12,7 @@ GestorSensores::GestorSensores(uint8_t pinDht, uint8_t pinPot)
       _enEstadoCritico(false),
       _alertaGeneradaEnEstadoCritico(false),
       _alertaPendiente(false),
+      _voltajeAlertaPendiente(0.0f),
       _ultimaLecturaDhtMs(0),
       _ultimaLecturaPotMs(0),
       _ultimaAlertaMs(0) {}
@@ -85,6 +86,7 @@ void GestorSensores::leerPotenciometro(unsigned long ahoraMs) {
   if (_enEstadoCritico && !_alertaGeneradaEnEstadoCritico &&
       !_alertaPendiente && cooldownCumplido) {
     _alertaPendiente = true;
+    _voltajeAlertaPendiente = _voltajePot;
     _alertaGeneradaEnEstadoCritico = true;
     _ultimaAlertaMs = ahoraMs;
     Serial.printf(
@@ -110,7 +112,13 @@ float GestorSensores::obtenerPorcentajePot() const {
 bool GestorSensores::superaUmbralCritico() const { return _enEstadoCritico; }
 
 bool GestorSensores::consumirEventoAlertaCritica() {
+  float voltaje;
+  return consumirEventoAlertaCritica(voltaje);
+}
+
+bool GestorSensores::consumirEventoAlertaCritica(float &voltaje) {
   if (_alertaPendiente) {
+    voltaje = _voltajeAlertaPendiente;
     _alertaPendiente = false;
     return true;
   }

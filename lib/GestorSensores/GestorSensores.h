@@ -25,6 +25,7 @@ public:
 
   // Retorna true una única vez cuando se dispara una nueva alerta de umbral crítico
   bool consumirEventoAlertaCritica();
+  bool consumirEventoAlertaCritica(float &voltaje);
 
   // Fuerza una lectura inmediata del potenciómetro (útil al ejecutar /thingup o /displaypot)
   void forzarLecturaPotenciometro();
@@ -46,6 +47,7 @@ private:
   bool _enEstadoCritico;
   bool _alertaGeneradaEnEstadoCritico;
   bool _alertaPendiente;
+  float _voltajeAlertaPendiente;
 
   unsigned long _ultimaLecturaDhtMs;
   unsigned long _ultimaLecturaPotMs;

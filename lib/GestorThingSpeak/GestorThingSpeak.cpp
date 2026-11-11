@@ -2,11 +2,16 @@
 
 #include <HTTPClient.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <time.h>
+#include "CertificadoThingSpeak.h"
 
 namespace {
 constexpr unsigned long INTERVALO_MINIMO_THINGSPEAK_MS = 15500UL;
 constexpr uint16_t TIMEOUT_THINGSPEAK_MS = 2000U;
-const char URL_THINGSPEAK[] = "http://api.thingspeak.com/update";
+constexpr unsigned long TIMEOUT_TLS_SEG = 2UL;
+constexpr time_t EPOCH_MINIMO_VALIDO = 1700000000;
+const char URL_THINGSPEAK[] = "https://api.thingspeak.com/update";
 }
 
 GestorThingSpeak::GestorThingSpeak()
@@ -96,6 +101,10 @@ bool GestorThingSpeak::realizarPeticion(const String& queryParams) {
         Serial.println(F("[ThingSpeak] No se envia: Wi-Fi desconectado."));
         return false;
     }
+    if (time(nullptr) < EPOCH_MINIMO_VALIDO) {
+        Serial.println(F("[ThingSpeak] No se envia: hora NTP aun no valida."));
+        return false;
+    }
 
     String url = URL_THINGSPEAK;
     url += "?api_key=";
@@ -103,7 +112,11 @@ bool GestorThingSpeak::realizarPeticion(const String& queryParams) {
     url += "&";
     url += queryParams;
 
-    WiFiClient cliente;
+    WiFiClientSecure cliente;
+    cliente.setCACert(THINGSPEAK_CERTIFICATE_ROOT);
+    cliente.setTimeout(TIMEOUT_TLS_SEG);
+    cliente.setHandshakeTimeout(TIMEOUT_TLS_SEG);
+    static_cast<Stream &>(cliente).setTimeout(TIMEOUT_THINGSPEAK_MS);
     HTTPClient http;
     http.setConnectTimeout(TIMEOUT_THINGSPEAK_MS);
     http.setTimeout(TIMEOUT_THINGSPEAK_MS);
@@ -112,8 +125,6 @@ bool GestorThingSpeak::realizarPeticion(const String& queryParams) {
         return false;
     }
 
-    _ultimoEnvioMs = millis();
-    _huboEnvio = true;
     int codigoHttp = http.GET();
 
     String payload;
@@ -122,6 +133,9 @@ bool GestorThingSpeak::realizarPeticion(const String& queryParams) {
         payload.trim();
     }
     http.end();
+    // Una escritura puede llegar al servicio aunque falle la respuesta.
+    _ultimoEnvioMs = millis();
+    _huboEnvio = true;
 
     bool entryIdValido = payload.length() > 0;
     for (unsigned int i = 0; i < payload.length(); ++i) {

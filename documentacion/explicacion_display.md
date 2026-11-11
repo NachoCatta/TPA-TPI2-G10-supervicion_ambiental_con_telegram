@@ -6,9 +6,9 @@ Guía para estudiar el código y explicarlo en la defensa. Describe la implement
 
 Las vistas de pantalla y la selección entre SSD1306 y SH1106 están implementadas. Se comprobó la compilación del firmware eligiendo cada controlador. La pantalla física y la ejecución en Wokwi todavía requieren prueba.
 
-**Telegram ya está integrado:** sus comandos de display invocan las vistas de esta biblioteca y validan el estado actual de sensores y actuadores. Los envíos a ThingSpeak siguen pendientes. Wi-Fi ya está implementado con reintentos e inicio de sincronización NTP. Las tareas restantes y sus criterios están en [tareas pendientes](tareas_pendientes.md).
+**Telegram está integrado:** sus comandos de display invocan las vistas de esta biblioteca y consultan el estado actual de sensores y actuadores.
 
-Las 22 pruebas nativas existentes comprueban sensores, actuadores y lógica Wi-Fi simulada; no comprueban el funcionamiento del OLED ni la comunicación real por Wi-Fi o Telegram.
+Las pruebas nativas comprueban sensores, actuadores y lógica de comunicación simulada; no comprueban el funcionamiento físico del OLED.
 
 ## La idea general
 
@@ -104,13 +104,16 @@ display.iniciar();
 Esta función realiza los siguientes pasos:
 
 1. Inicia I²C con SDA y SCL definidos en `Configuracion.h`.
-2. Según `_tipo`, ejecuta el `begin()` de SSD1306 o el de SH1106, con los parámetros que requiere cada biblioteca.
-3. Si la biblioteca informa error, devuelve `false` y deja `_inicializado` en falso.
-4. Si termina correctamente, habilita las vistas y muestra la bienvenida.
+2. Comprueba que un dispositivo responda en la dirección I²C configurada.
+3. Según `_tipo`, ejecuta el `begin()` de SSD1306 o el de SH1106.
+4. Si falta la respuesta I²C o la biblioteca informa error, devuelve `false` y deja `_inicializado` en falso.
+5. Si termina correctamente, habilita las vistas y muestra la bienvenida.
 
 Existen dos objetos de controlador, pero **solo se inicializa el elegido**. No se prueban automáticamente los dos modelos ni se manejan dos pantallas conectadas a la vez.
 
 `_inicializado` sirve para que las vistas no dibujen antes de preparar el controlador. Un retorno exitoso de la biblioteca no confirma por sí solo que el controlador físico sea el correcto; hay que observar la imagen en la pantalla.
+
+`estaInicializado()` permite que Telegram informe que la pantalla no está disponible. La respuesta I²C comprueba que hay un dispositivo en esa dirección, pero no identifica su controlador ni garantiza que la imagen sea visible.
 
 ## 5. Dibujar y enviar la imagen son pasos diferentes
 
@@ -136,7 +139,7 @@ flowchart TD
 
 Las vistas LED, potenciómetro, DHT y comando desconocido comparten ese mismo recorrido.
 
-## 6. Cómo se conectará Telegram
+## 6. Cómo se conecta Telegram
 
 La interfaz actual de `GestorTelegram` recibe este parámetro:
 
@@ -144,9 +147,9 @@ La interfaz actual de `GestorTelegram` recibe este parámetro:
 GestorDisplay &display
 ```
 
-Aquí `&` también significa referencia: Telegram recibirá acceso al mismo gestor que creó main, no una copia. La clase `GestorDisplay` es la misma para ambos controladores, así que la firma de Telegram no necesita cambiar al elegir otra pantalla.
+Aquí `&` también significa referencia: Telegram recibe acceso al mismo gestor que creó main, no una copia. La clase `GestorDisplay` es la misma para ambos controladores, así que la firma de Telegram no necesita cambiar al elegir otra pantalla.
 
-Cuando se implemente `/displayled`, el manejador podrá ejecutar:
+Para `/displayled`, el manejador ejecuta una llamada de esta forma:
 
 ```cpp
 display.mostrarEstadoLed(
@@ -155,13 +158,11 @@ display.mostrarEstadoLed(
     actuadores.segundosRestantesRele());
 ```
 
-**Este es un ejemplo de integración pendiente**, no una llamada ya implementada en el bot. Las consultas de actuadores y la vista sí existen; falta recibir e interpretar el comando para unirlas.
-
 Telegram pedirá mostrar el estado del LED. `GestorDisplay` se encargará de dibujar y enviar la imagen con el controlador elegido. Al pasar de SSD1306 a SH1106, esa llamada será idéntica.
 
 ## Guion breve para la defensa
 
-> Elegimos el modelo de pantalla al crear el gestor en el main. El gestor tiene preparados los controladores SSD1306 y SH1106, pero inicializa únicamente el seleccionado. Ambos comparten las funciones gráficas de Adafruit_GFX, por lo que usamos una referencia al controlador elegido para dibujar los mismos textos y figuras. Al terminar cada vista, una función envía la imagen con el controlador correspondiente. Esto permite cambiar el modelo en una sola línea del main y conservar las llamadas del resto del programa. Telegram ya tiene prevista una referencia a este gestor, pero su integración sigue pendiente.
+> Elegimos el modelo de pantalla al crear el gestor en el main. El gestor tiene preparados los controladores SSD1306 y SH1106, pero inicializa únicamente el seleccionado. Ambos comparten las funciones gráficas de Adafruit_GFX, por lo que usamos una referencia al controlador elegido para dibujar los mismos textos y figuras. Al terminar cada vista, una función envía la imagen con el controlador correspondiente. Esto permite cambiar el modelo en una sola línea del main y conservar las llamadas del resto del programa. Telegram utiliza una referencia a este gestor.
 
 ## Preguntas que conviene saber responder
 
@@ -173,6 +174,6 @@ Telegram pedirá mostrar el estado del LED. `GestorDisplay` se encargará de dib
 
 **¿Por qué hay un método separado para enviar la imagen?** Porque las funciones gráficas preparan el buffer, mientras que cada controlador tiene su propia operación para transferirlo a la pantalla.
 
-**¿Qué se reutiliza?** El código de todas las vistas y la interfaz que usan main y el futuro manejador de Telegram.
+**¿Qué se reutiliza?** El código de todas las vistas y la interfaz que usan main y el manejador de Telegram.
 
 **¿Qué falta demostrar?** La pantalla física, el funcionamiento en Wokwi y los recorridos con los servicios de red. Compilar ambas selecciones no demuestra la integración completa del TP.

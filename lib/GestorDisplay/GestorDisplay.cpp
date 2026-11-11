@@ -16,6 +16,12 @@ GestorDisplay::GestorDisplay(TipoDisplay tipo)
 
 bool GestorDisplay::iniciar() {
   Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL);
+  Wire.beginTransmission(OLED_DIRECCION_I2C);
+  if (Wire.endTransmission() != 0) {
+    _inicializado = false;
+    Serial.println(F("[Display] No responde ningun dispositivo OLED en I2C."));
+    return false;
+  }
 
   // Solo se inicializa el controlador seleccionado en main.
   bool correcto = _tipo == TipoDisplay::SSD1306
@@ -34,6 +40,8 @@ bool GestorDisplay::iniciar() {
   mostrarBienvenida();
   return true;
 }
+
+bool GestorDisplay::estaInicializado() const { return _inicializado; }
 
 void GestorDisplay::actualizarPantalla() {
   if (_tipo == TipoDisplay::SSD1306) {

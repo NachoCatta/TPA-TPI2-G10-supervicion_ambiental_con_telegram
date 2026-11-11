@@ -2,6 +2,7 @@
 # PlatformIO & Compilación
 # ==========================================
 .pio/
+build/arduino/
 .pioenvs/
 .piolibdeps/
 compile_commands.json

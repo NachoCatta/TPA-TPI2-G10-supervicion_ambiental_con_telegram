@@ -19,6 +19,7 @@ void setUp() {
   temperaturaPrueba = 24.0f;
   humedadPrueba = 60.0f;
   lecturasDhtPrueba = 0;
+  fallarInicioTemporizadorPrueba() = false;
   for (int &salida : salidasPrueba) salida = LOW;
 }
 
@@ -40,7 +41,7 @@ void test_apagado_automatico_y_evento_unico() {
   TEST_ASSERT_TRUE(actuadores.estaReleEncendido());
   TEST_ASSERT_EQUAL(1, actuadores.segundosRestantesRele());
   tiempoPrueba = 5000;
-  actuadores.actualizar();
+  vencerTemporizadorPrueba(); // La red podría seguir bloqueando el loop.
   TEST_ASSERT_FALSE(actuadores.estaReleEncendido());
   TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_LED_VERDE]);
   TEST_ASSERT_TRUE(actuadores.consumirEventoApagadoAutomatico());
@@ -66,13 +67,23 @@ void test_limite_maximo_del_temporizador() {
   TEST_ASSERT_EQUAL(MAX_TIEMPO_RELE_SEGUNDOS, actuadores.segundosRestantesRele());
 }
 
+void test_error_al_programar_temporizador_apaga_salida() {
+  GestorActuadores actuadores(PIN_LED_VERDE, PIN_LED_AZUL);
+  actuadores.iniciar();
+  fallarInicioTemporizadorPrueba() = true;
+  TEST_ASSERT_FALSE(actuadores.encenderReleTemporizado(5));
+  TEST_ASSERT_FALSE(actuadores.estaReleEncendido());
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_LED_VERDE]);
+  TEST_ASSERT_FALSE(actuadores.consumirEventoApagadoAutomatico());
+}
+
 void test_apagado_manual_cancela_temporizador() {
   GestorActuadores actuadores(PIN_LED_VERDE, PIN_LED_AZUL);
   actuadores.iniciar();
   actuadores.encenderReleTemporizado(5);
   actuadores.apagarRele();
   tiempoPrueba = 6000;
-  actuadores.actualizar();
+  ultimoTemporizadorPrueba()->callback(ultimoTemporizadorPrueba()->arg);
   TEST_ASSERT_FALSE(actuadores.tieneTemporizadorActivo());
   TEST_ASSERT_FALSE(actuadores.consumirEventoApagadoAutomatico());
 }
@@ -84,11 +95,12 @@ void test_nueva_orden_reinicia_temporizador() {
   tiempoPrueba = 3000;
   actuadores.encenderReleTemporizado(10);
   tiempoPrueba = 5000;
-  actuadores.actualizar();
+  // Callback ya despachado para el temporizador anterior.
+  ultimoTemporizadorPrueba()->callback(ultimoTemporizadorPrueba()->arg);
   TEST_ASSERT_TRUE(actuadores.estaReleEncendido());
   TEST_ASSERT_EQUAL(8, actuadores.segundosRestantesRele());
   tiempoPrueba = 13000;
-  actuadores.actualizar();
+  vencerTemporizadorPrueba();
   TEST_ASSERT_FALSE(actuadores.estaReleEncendido());
 }
 
@@ -102,7 +114,7 @@ void test_temporizador_al_desbordar_millis() {
   TEST_ASSERT_TRUE(actuadores.estaReleEncendido());
   TEST_ASSERT_EQUAL(1, actuadores.segundosRestantesRele());
   tiempoPrueba = 1499;
-  actuadores.actualizar();
+  vencerTemporizadorPrueba();
   TEST_ASSERT_FALSE(actuadores.estaReleEncendido());
 }
 
@@ -141,6 +153,17 @@ void test_voltaje_usa_milivoltios_y_no_escala_adc() {
   TEST_ASSERT_EQUAL(2000, sensores.obtenerValorAdcPot());
   TEST_ASSERT_FLOAT_WITHIN(0.001f, 2.6f, sensores.obtenerVoltajePot());
   TEST_ASSERT_TRUE(sensores.superaUmbralCritico());
+}
+
+void test_alerta_conserva_voltaje_que_la_genero() {
+  GestorSensores sensores(PIN_DHT22, PIN_POTENCIOMETRO);
+  sensores.iniciar();
+  muestrear(sensores, 1000, 3000);
+  muestrear(sensores, 2000, 1000);
+  float voltaje = 0;
+  TEST_ASSERT_TRUE(sensores.consumirEventoAlertaCritica(voltaje));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 3.0f, voltaje);
+  TEST_ASSERT_FALSE(sensores.consumirEventoAlertaCritica(voltaje));
 }
 
 void test_alerta_al_arrancar_en_cero_respeta_cooldown() {
@@ -217,12 +240,14 @@ int main() {
   RUN_TEST(test_apagado_automatico_y_evento_unico);
   RUN_TEST(test_tiempo_invalido_no_enciende_ni_reemplaza_temporizador);
   RUN_TEST(test_limite_maximo_del_temporizador);
+  RUN_TEST(test_error_al_programar_temporizador_apaga_salida);
   RUN_TEST(test_apagado_manual_cancela_temporizador);
   RUN_TEST(test_nueva_orden_reinicia_temporizador);
   RUN_TEST(test_temporizador_al_desbordar_millis);
   RUN_TEST(test_dht_respeta_intervalo_desde_inicio);
   RUN_TEST(test_dht_informa_error_conserva_dato_y_se_recupera);
   RUN_TEST(test_voltaje_usa_milivoltios_y_no_escala_adc);
+  RUN_TEST(test_alerta_conserva_voltaje_que_la_genero);
   RUN_TEST(test_alerta_al_arrancar_en_cero_respeta_cooldown);
   RUN_TEST(test_segundo_episodio_sostenido_alerta_al_vencer_espera);
   RUN_TEST(test_histeresis_evitar_rearme_en_la_banda);

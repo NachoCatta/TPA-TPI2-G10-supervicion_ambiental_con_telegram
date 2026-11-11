@@ -145,7 +145,7 @@ void test_temporizador_sigue_funcionando_durante_reintentos_wifi() {
     actuadores.fijarLedAzul(wifi.estaConectado());
     TEST_ASSERT_TRUE(actuadores.estaReleEncendido());
   }
-  actuadores.actualizar();
+  vencerTemporizadorPrueba();
   TEST_ASSERT_FALSE(actuadores.estaReleEncendido());
   TEST_ASSERT_EQUAL(2, WiFi.intentos);
   TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_LED_AZUL]);

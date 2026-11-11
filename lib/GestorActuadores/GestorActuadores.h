@@ -3,10 +3,14 @@
 
 #include "Configuracion.h"
 #include <Arduino.h>
+#include <esp_timer.h>
 
 class GestorActuadores {
 public:
   GestorActuadores(uint8_t pinActuador, uint8_t pinLedAzul);
+  ~GestorActuadores();
+  GestorActuadores(const GestorActuadores &) = delete;
+  GestorActuadores &operator=(const GestorActuadores &) = delete;
 
   void iniciar();
   void actualizar();
@@ -30,6 +34,10 @@ public:
   bool consumirEventoApagadoAutomatico();
 
 private:
+  static void alVencerTemporizador(void *contexto);
+  void apagarSiVencido();
+  void bloquear() const;
+  void desbloquear() const;
   uint8_t _pinActuador;
   uint8_t _pinLedAzul;
   bool _estadoRele;
@@ -38,6 +46,10 @@ private:
   bool _eventoApagadoAuto;
   unsigned long _inicioTemporizadorMs;
   unsigned long _duracionTemporizadorMs;
+  esp_timer_handle_t _temporizador;
+#ifdef ARDUINO_ARCH_ESP32
+  mutable portMUX_TYPE _proteccion = portMUX_INITIALIZER_UNLOCKED;
+#endif
 };
 
 #endif // GESTOR_ACTUADORES_H

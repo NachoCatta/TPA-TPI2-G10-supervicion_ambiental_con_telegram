@@ -1,6 +1,6 @@
 # Supervisión ambiental con ESP32 — TPI 2, grupo 10
 
-Proyecto PlatformIO + Wokwi con DHT22, potenciómetro, OLED y control remoto previsto mediante Telegram y ThingSpeak.
+Proyecto PlatformIO + Wokwi con DHT22, potenciómetro, OLED y control remoto implementado mediante Telegram y ThingSpeak.
 
 ## Estado del trabajo
 
@@ -36,9 +36,9 @@ El código propio no agrega `delay()` ni un bucle esperando Wi-Fi o NTP. Los tie
 
 ## ThingSpeak
 
-`GestorThingSpeak` publica temperatura y humedad en los campos 1 y 2 cada 20 s, y ofrece el envío de voltaje en el campo 3. Usa HTTP por el puerto 80 y la clave/canal de `secrets.h`. Una ventana compartida de 15,5 s evita escrituras prematuras. La escritura solo se confirma si ThingSpeak devuelve HTTP 200 y un Entry ID numérico mayor que cero.
+`GestorThingSpeak` publica temperatura y humedad en los campos 1 y 2 cada 20 s, y ofrece el envío de voltaje en el campo 3. Usa HTTPS con validación del certificado del servidor, hora NTP válida y la clave/canal de `secrets.h`. Una ventana compartida de 15,5 s comienza al finalizar cada intento GET, incluso si falla la respuesta, para evitar escrituras prematuras. La escritura solo se confirma si ThingSpeak devuelve HTTP 200 y un Entry ID numérico mayor que cero.
 
-Las peticiones HTTP tienen un timeout de conexión y lectura de 2 s, pero `HTTPClient` es síncrono: estos límites no vuelven no bloqueante al `loop()` ni limitan necesariamente la resolución DNS. Hay que medir la operación en la placa y verificar el temporizador del actuador bajo carga de red.
+Las peticiones tienen límites de 2 s para conexión, handshake TLS y lectura, pero `HTTPClient` es síncrono: estos límites no vuelven no bloqueante al `loop()` ni limitan necesariamente la resolución DNS. Hay que medir la operación en la placa y verificar el temporizador del actuador bajo carga de red.
 
 ## Elegir la pantalla desde main
 
@@ -72,7 +72,9 @@ $env:PATH = "$env:USERPROFILE\.platformio\packages\toolchain-gccmingw32\bin;$env
 pio test -e native
 ```
 
-Las 22 pruebas compilan las bibliotecas reales: 14 de sensores/actuadores y 8 de Wi-Fi. Estas últimas comprueban intervalos de reintento, caída/recuperación, LED azul, solicitud NTP, desbordamiento de `millis()` y continuidad del temporizador mientras se reintenta. Los archivos de `test/soporte/` sustituyen reloj, GPIO, lecturas, Wi-Fi y configuración NTP; solo se incluyen en el entorno `native`. No verifican radio real, recepción de hora, calibración eléctrica, OLED ni servicios de Internet.
+Las pruebas nativas compilan las bibliotecas reales de sensores, actuadores y Wi-Fi. Estas últimas comprueban intervalos de reintento, caída/recuperación, LED azul, solicitud NTP, desbordamiento de `millis()` y continuidad del temporizador mientras se reintenta. Los archivos de `test/soporte/` sustituyen reloj, GPIO, lecturas, Wi-Fi y configuración NTP; solo se incluyen en el entorno `native`. No verifican radio real, recepción de hora, calibración eléctrica, OLED ni servicios de Internet.
+
+El 11/11/2026 pasaron 27 pruebas nativas: 3 del parser, 16 de lógica y 8 de Wi-Fi. Cppcheck no emitió diagnósticos sobre el código propio analizado. La ejecución integral del bot y de los servicios reales permanece pendiente.
 
 ## Reglas de funcionamiento acordadas
 
@@ -80,7 +82,7 @@ Las 22 pruebas compilan las bibliotecas reales: 14 de sensores/actuadores y 8 de
 - El potenciómetro se informa en voltios usando `analogReadMilliVolts()`. El ADC bruto se conserva para porcentaje y barra. Validar las medidas con multímetro en la placa.
 - En Wokwi el DHT22, el potenciómetro y el OLED se alimentan desde `3V3` para mantener las señales conectadas al ESP32 dentro de niveles seguros. Verificar el cableado y la tensión real antes de conectar la placa UTN.
 - La alarma se activa desde 2,50 V y se rearma al bajar a 2,35 V. Genera un evento por episodio y espera al menos 30 s entre eventos. Si un segundo episodio sigue activo al vencer esa espera, genera su evento. Si termina antes, no genera un aviso tardío de ese episodio. El muestreo normal es cada 250 ms.
-- `consumirEventoAlertaCritica()` retira un evento local, no confirma un envío a Telegram. Telegram conserva un único aviso pendiente y lo reintenta si falla la red.
+- `consumirEventoAlertaCritica(voltaje)` retira un evento local y entrega el voltaje capturado al generarse, no confirma un envío a Telegram. Telegram conserva un único aviso pendiente y lo reintenta si falla la red.
 - `datosDhtValidos()` refleja el resultado de la última lectura. Los getters conservan el último dato bueno; antes de publicarlo o mostrarlo como actual hay que comprobar esa bandera.
 
 La [planificación](documentacion/planificacion.md) describe las etapas. Los archivos y criterios de aceptación de cada aporte están en [tareas pendientes](documentacion/tareas_pendientes.md).
