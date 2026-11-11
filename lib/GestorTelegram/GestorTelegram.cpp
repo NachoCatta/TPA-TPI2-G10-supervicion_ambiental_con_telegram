@@ -12,9 +12,9 @@ void GestorTelegram::iniciar() {
 void GestorTelegram::actualizar(GestorSensores &sensores,
                                 GestorActuadores &actuadores,
                                 GestorDisplay &display,
-                                GestorHTTPClient &httpClient) {
+                                GestorThingSpeak &thingSpeak) {
   (void)sensores;
   (void)actuadores;
   (void)display;
-  (void)httpClient;
+  (void)thingSpeak;
 }

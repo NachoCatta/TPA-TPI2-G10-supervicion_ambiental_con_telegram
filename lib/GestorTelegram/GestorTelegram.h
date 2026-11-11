@@ -5,7 +5,7 @@
 #include "GestorActuadores.h"
 #include "GestorDisplay.h"
 #include "GestorSensores.h"
-#include "GestorHTTPClient.h"
+#include "GestorThingSpeak.h"
 #include <Arduino.h>
 #include <UniversalTelegramBot.h>
 #include <WiFiClientSecure.h>
@@ -16,7 +16,7 @@ public:
 
   void iniciar();
   void actualizar(GestorSensores &sensores, GestorActuadores &actuadores,
-                  GestorDisplay &display, GestorHTTPClient &httpClient);
+                  GestorDisplay &display, GestorThingSpeak &thingSpeak);
 
 private:
   WiFiClientSecure _clienteSeguro;

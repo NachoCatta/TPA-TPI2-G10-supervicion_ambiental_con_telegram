@@ -30,11 +30,11 @@ Las 8 pruebas nuevas simulan conexión, red ausente/clave incorrecta, caída y r
 
 La puesta en marcha real se verifica junto con el cierre de la entrega, no se marca realizada por estas pruebas. Ver las comprobaciones comunes al final del documento.
 
-## Tarea 2 — Envíos a ThingSpeak mediante HTTPClient
+## Tarea 2 — Envíos a ThingSpeak
 
 **Responsable:** por asignar. **Dependencias:** usar el módulo Wi-Fi ya integrado; requiere red/canal reales para pruebas de servicio.
 
-**Archivos:** `lib/GestorHTTPClient/GestorHTTPClient.h` y `.cpp`. La clase propia se llama `GestorHTTPClient`; `HTTPClient` es la clase proporcionada por el framework y se incluye con `<HTTPClient.h>`. El servicio de destino sigue siendo ThingSpeak. Mantener las funciones públicas:
+**Archivos:** `lib/GestorThingSpeak/GestorThingSpeak.h` y `.cpp`. Mantener la interfaz actual si alcanza:
 
 ```cpp
 void iniciar();
@@ -44,11 +44,11 @@ bool enviarVoltajePotenciometro(float voltaje);
 
 ### Implementar
 
-1. Implementar las solicitudes con `<HTTPClient.h>`, incluido en Arduino ESP32, a `https://api.thingspeak.com/update` mediante GET o POST. Utilizar `SECRET_THINGSPEAK_WRITE_KEY`; esa clave identifica el canal para este endpoint. `SECRET_THINGSPEAK_CHANNEL_ID` se conserva como identificación del canal, pero no es un parámetro requerido de `/update`. Mantener HTTPS con verificación del certificado. No hace falta instalar la biblioteca oficial ThingSpeak.
+1. Inicializar el cliente para ThingSpeak. Usar `SECRET_THINGSPEAK_CHANNEL_ID` y `SECRET_THINGSPEAK_WRITE_KEY`; preferir HTTPS con verificación del certificado.
 2. En `actualizar()`, enviar temperatura a `FIELD_TEMPERATURA` (1) y humedad a `FIELD_HUMEDAD` (2) cada `INTERVALO_THINGSPEAK_MS` (20 s). Comprobar `sensores.datosDhtValidos()` para no publicar una lectura fallida como actual.
 3. En `enviarVoltajePotenciometro()`, publicar el voltaje en `FIELD_VOLTAJE_POT` (3). No modificar el significado de los campos.
 4. Compartir el control del último envío entre publicación periódica y manual. Un canal gratuito requiere al menos 15 s entre escrituras; un `/thingup` inmediato puede ser rechazado por ese límite. Mantenerlo simple: si no puede enviarse ahora, devolver `false` y Telegram deberá informarlo. No prometer envío exitoso ni dejar una cola oculta.
-5. Retornar `true` únicamente cuando el servicio confirme que guardó el dato. Para `/update` en formato texto, comprobar HTTP 200 y un ID de entrada positivo en el cuerpo; `0` indica fallo. Comprobar Wi-Fi y validez del dato, limitar el tiempo de espera y liberar la conexión con `http.end()`. No agregar `delay()` para espaciar escrituras.
+5. Retornar `true` únicamente cuando el servicio confirme que guardó el dato. Comprobar Wi-Fi, validez del dato y respuesta real. Limitar el tiempo de espera de red; no agregar `delay()` para espaciar escrituras.
 
 ### Comprobar para terminar
 
@@ -59,13 +59,13 @@ bool enviarVoltajePotenciometro(float voltaje);
 - [ ] Sin red, con API Key incorrecta o DHT inválido, el módulo informa fallo y no bloquea indefinidamente el programa.
 - [ ] Documentar el tiempo máximo observado de una operación de red y comprobar que respete el margen acordado para el apagado del actuador. `millis()` por sí solo no vuelve asíncrona una solicitud HTTP.
 
-Referencias: [API de escritura de ThingSpeak](https://www.mathworks.com/help/thingspeak/writedata.html), [límites de actualización](https://www.mathworks.com/help/thingspeak/channel-control.html).
+Referencia: [límites de actualización de ThingSpeak](https://www.mathworks.com/help/thingspeak/channel-control.html).
 
 ## Tarea 3 — Telegram, integración y entregable
 
 **Responsable:** por asignar. **Dependencias:** Wi-Fi ya integrado y tarea 2 para probar `/thingup`.
 
-**Archivos:** `lib/GestorTelegram/GestorTelegram.h` y `.cpp`. Usar las interfaces existentes de sensores, actuadores, display y `GestorHTTPClient`. El `.ino` y sus instrucciones de instalación se preparan como parte del cierre de esta tarea.
+**Archivos:** `lib/GestorTelegram/GestorTelegram.h` y `.cpp`. Usar las interfaces existentes de sensores, actuadores, display y ThingSpeak. El `.ino` y sus instrucciones de instalación se preparan como parte del cierre de esta tarea.
 
 ### Implementar
 
