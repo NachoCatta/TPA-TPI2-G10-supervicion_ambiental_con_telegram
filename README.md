@@ -4,11 +4,9 @@ Proyecto PlatformIO + Wokwi con DHT22, potenciómetro, OLED y control remoto pre
 
 ## Estado del trabajo
 
-La base local está implementada: sensores, alarma por umbral, actuador temporizado, vistas OLED y conexión/reconexión Wi-Fi con indicador azul y solicitud de hora NTP. `setup()` y `loop()` conservan solo llamadas a funciones/métodos. **Telegram ya está integrado** con comandos, callbacks inline y alertas pendientes; ThingSpeak continúa pendiente en la tarea 2. Para el sketch de Arduino IDE, consultar [sus instrucciones](documentacion/arduino_ide.md).
+La base local está implementada: sensores, alarma por umbral, actuador temporizado, vistas OLED, ThingSpeak y conexión/reconexión Wi-Fi con indicador azul y solicitud de hora NTP. `setup()` y `loop()` conservan solo llamadas a funciones/métodos. **Telegram ya está integrado** con comandos, callbacks inline y alertas pendientes. Para el sketch de Arduino IDE, consultar [sus instrucciones](documentacion/arduino_ide.md).
 
 El actuador de demostración es el **LED verde en GPIO 23**. Las funciones se llaman `encenderRele`/`apagarRele` por el comando del enunciado; no accionan el relé físico del kit, que está en GPIO 14. Confirmar el montaje antes de cambiar pines.
-
-El módulo propio para los envíos se llama `GestorHTTPClient`, con una instancia `httpClient` en main. Su implementación pendiente usará `<HTTPClient.h>` del framework Arduino ESP32 para comunicarse con ThingSpeak; no requiere la biblioteca oficial ThingSpeak. Conserva las funciones `iniciar()`, `actualizar(sensores)` y `enviarVoltajePotenciometro(voltaje)`.
 
 ## Compilar y preparar credenciales
 
@@ -35,6 +33,12 @@ Para Wokwi se usan `diagram.json` y `wokwi.toml`. La compilación no sustituye u
 - Los cambios de conexión y los intentos se informan por Serial. No se reemplazan las vistas OLED con avisos de red en cada ciclo.
 
 El código propio no agrega `delay()` ni un bucle esperando Wi-Fi o NTP. Los tiempos reales del SDK y del acceso a la red deben comprobarse en Wokwi y en la placa; las pruebas nativas simulan sus respuestas.
+
+## ThingSpeak
+
+`GestorThingSpeak` publica temperatura y humedad en los campos 1 y 2 cada 20 s, y ofrece el envío de voltaje en el campo 3. Usa HTTP por el puerto 80 y la clave/canal de `secrets.h`. Una ventana compartida de 15,5 s evita escrituras prematuras. La escritura solo se confirma si ThingSpeak devuelve HTTP 200 y un Entry ID numérico mayor que cero.
+
+Las peticiones HTTP tienen un timeout de conexión y lectura de 2 s, pero `HTTPClient` es síncrono: estos límites no vuelven no bloqueante al `loop()` ni limitan necesariamente la resolución DNS. Hay que medir la operación en la placa y verificar el temporizador del actuador bajo carga de red.
 
 ## Elegir la pantalla desde main
 

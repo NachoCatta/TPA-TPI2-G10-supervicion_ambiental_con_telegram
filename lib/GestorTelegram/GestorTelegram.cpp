@@ -64,7 +64,7 @@ bool GestorTelegram::chatAutorizado(const String &chatId) const {
 void GestorTelegram::actualizar(GestorSensores &sensores,
                                 GestorActuadores &actuadores,
                                 GestorDisplay &display,
-                                GestorHTTPClient &httpClient) {
+                                GestorThingSpeak &thingSpeak) {
   actualizarAlerta(sensores);
 
   if (WiFi.status() != WL_CONNECTED || !horaValida()) {
@@ -82,10 +82,10 @@ void GestorTelegram::actualizar(GestorSensores &sensores,
       if (_bot.messages[i].type == F("callback_query")) {
         procesarCallback(_bot.messages[i].chat_id,
                          _bot.messages[i].query_id, _bot.messages[i].text,
-                         sensores, actuadores, display, httpClient);
+                         sensores, actuadores, display, thingSpeak);
       } else {
         procesarComando(_bot.messages[i].chat_id, _bot.messages[i].text,
-                        sensores, actuadores, display, httpClient);
+                        sensores, actuadores, display, thingSpeak);
       }
     }
   }
@@ -96,20 +96,20 @@ void GestorTelegram::actualizar(GestorSensores &sensores,
 void GestorTelegram::procesarCallback(
     const String &chatId, const String &callbackId, const String &comando,
     GestorSensores &sensores, GestorActuadores &actuadores,
-    GestorDisplay &display, GestorHTTPClient &httpClient) {
+    GestorDisplay &display, GestorThingSpeak &thingSpeak) {
   if (!chatAutorizado(chatId)) {
     _bot.answerCallbackQuery(callbackId, F("Chat no autorizado"), true);
     return;
   }
 
   _bot.answerCallbackQuery(callbackId, F("Orden recibida"));
-  procesarComando(chatId, comando, sensores, actuadores, display, httpClient);
+  procesarComando(chatId, comando, sensores, actuadores, display, thingSpeak);
 }
 
 void GestorTelegram::procesarComando(
     const String &chatId, const String &comando, GestorSensores &sensores,
     GestorActuadores &actuadores, GestorDisplay &display,
-    GestorHTTPClient &httpClient) {
+    GestorThingSpeak &thingSpeak) {
   if (!chatAutorizado(chatId)) {
     _bot.sendMessage(chatId, F("Chat no autorizado."), "");
     return;
@@ -161,7 +161,7 @@ void GestorTelegram::procesarComando(
   if (comando == F("/thingup")) {
     sensores.forzarLecturaPotenciometro();
     bool enviado =
-        httpClient.enviarVoltajePotenciometro(sensores.obtenerVoltajePot());
+        thingSpeak.enviarVoltajePotenciometro(sensores.obtenerVoltajePot());
     _bot.sendMessage(
         chatId,
         enviado
