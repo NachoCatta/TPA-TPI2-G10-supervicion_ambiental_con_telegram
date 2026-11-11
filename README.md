@@ -78,6 +78,7 @@ Las 22 pruebas compilan las bibliotecas reales: 14 de sensores/actuadores y 8 de
 
 - `/releon <segundos>` deberá aceptar enteros entre 1 y 3600 (máximo configurable en `Configuracion.h`). `encenderReleTemporizado()` devuelve `false` si el valor es inválido y conserva la salida/temporización anterior. `/releoff` deberá apagar inmediatamente.
 - El potenciómetro se informa en voltios usando `analogReadMilliVolts()`. El ADC bruto se conserva para porcentaje y barra. Validar las medidas con multímetro en la placa.
+- En Wokwi el DHT22, el potenciómetro y el OLED se alimentan desde `3V3` para mantener las señales conectadas al ESP32 dentro de niveles seguros. Verificar el cableado y la tensión real antes de conectar la placa UTN.
 - La alarma se activa desde 2,50 V y se rearma al bajar a 2,35 V. Genera un evento por episodio y espera al menos 30 s entre eventos. Si un segundo episodio sigue activo al vencer esa espera, genera su evento. Si termina antes, no genera un aviso tardío de ese episodio. El muestreo normal es cada 250 ms.
 - `consumirEventoAlertaCritica()` retira un evento local, no confirma un envío a Telegram. Telegram conserva un único aviso pendiente y lo reintenta si falla la red.
 - `datosDhtValidos()` refleja el resultado de la última lectura. Los getters conservan el último dato bueno; antes de publicarlo o mostrarlo como actual hay que comprobar esa bandera.
