@@ -4,7 +4,7 @@ Proyecto PlatformIO + Wokwi con DHT22, potenciómetro, OLED y control remoto pre
 
 ## Estado del trabajo
 
-La base local está implementada: sensores, alarma por umbral, actuador temporizado, vistas OLED y conexión/reconexión Wi-Fi con indicador azul y solicitud de hora NTP. `setup()` y `loop()` conservan solo llamadas a funciones/métodos. **ThingSpeak y los comandos de Telegram están pendientes**, repartidos en [dos tareas para completar en equipo](documentacion/tareas_pendientes.md).
+La base local está implementada: sensores, alarma por umbral, actuador temporizado, vistas OLED, conexión/reconexión Wi-Fi y publicación en ThingSpeak. Los comandos de Telegram están pendientes. `setup()` y `loop()` conservan solo llamadas a funciones/métodos. Ver el [detalle de tareas pendientes](documentacion/tareas_pendientes.md).
 
 El actuador de demostración es el **LED verde en GPIO 23**. Las funciones se llaman `encenderRele`/`apagarRele` por el comando del enunciado; no accionan el relé físico del kit, que está en GPIO 14. Confirmar el montaje antes de cambiar pines.
 
@@ -33,6 +33,12 @@ Para Wokwi se usan `diagram.json` y `wokwi.toml`. La compilación no sustituye u
 - Los cambios de conexión y los intentos se informan por Serial. No se reemplazan las vistas OLED con avisos de red en cada ciclo.
 
 El código propio no agrega `delay()` ni un bucle esperando Wi-Fi o NTP. Los tiempos reales del SDK y del acceso a la red deben comprobarse en Wokwi y en la placa; las pruebas nativas simulan sus respuestas.
+
+## ThingSpeak
+
+`GestorThingSpeak` publica temperatura y humedad en los campos 1 y 2 cada 20 s, y ofrece el envío de voltaje en el campo 3. Usa HTTP por el puerto 80 y la clave/canal de `secrets.h`. Una ventana compartida de 15,5 s evita escrituras prematuras. La escritura solo se confirma si ThingSpeak devuelve HTTP 200 y un Entry ID numérico mayor que cero.
+
+Las peticiones HTTP tienen un timeout de conexión y lectura de 2 s, pero `HTTPClient` es síncrono: estos límites no vuelven no bloqueante al `loop()` ni limitan necesariamente la resolución DNS. Hay que medir la operación en la placa y verificar el temporizador del actuador bajo carga de red.
 
 ## Elegir la pantalla desde main
 
@@ -73,7 +79,7 @@ Las 22 pruebas compilan las bibliotecas reales: 14 de sensores/actuadores y 8 de
 - `/releon <segundos>` deberá aceptar enteros entre 1 y 3600 (máximo configurable en `Configuracion.h`). `encenderReleTemporizado()` devuelve `false` si el valor es inválido y conserva la salida/temporización anterior. `/releoff` deberá apagar inmediatamente.
 - El potenciómetro se informa en voltios usando `analogReadMilliVolts()`. El ADC bruto se conserva para porcentaje y barra. Validar las medidas con multímetro en la placa.
 - La alarma se activa desde 2,50 V y se rearma al bajar a 2,35 V. Genera un evento por episodio y espera al menos 30 s entre eventos. Si un segundo episodio sigue activo al vencer esa espera, genera su evento. Si termina antes, no genera un aviso tardío de ese episodio. El muestreo normal es cada 250 ms.
-- `consumirEventoAlertaCritica()` retira un evento local, no confirma un envío a Telegram. El módulo pendiente de Telegram deberá conservar un aviso por enviar si falla la red.
+- `consumirEventoAlertaCritica()` retira un evento local, no confirma un envío a Telegram. `GestorTelegram` conserva un único aviso pendiente hasta que el servicio confirma su entrega.
 - `datosDhtValidos()` refleja el resultado de la última lectura. Los getters conservan el último dato bueno; antes de publicarlo o mostrarlo como actual hay que comprobar esa bandera.
 
 La [planificación](documentacion/planificacion.md) describe las etapas. Los archivos y criterios de aceptación de cada aporte están en [tareas pendientes](documentacion/tareas_pendientes.md).
