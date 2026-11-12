@@ -12,6 +12,18 @@ constexpr uint16_t TIMEOUT_THINGSPEAK_MS = 10000U;
 constexpr unsigned long TIMEOUT_TLS_SEG = 10UL;
 constexpr time_t EPOCH_MINIMO_VALIDO = 1700000000;
 const char URL_THINGSPEAK[] = "https://api.thingspeak.com/update";
+
+String camposClima(float temperatura, float humedad) {
+    String campos = "field";
+    campos += FIELD_TEMPERATURA;
+    campos += "=";
+    campos += String(temperatura, 2);
+    campos += "&field";
+    campos += FIELD_HUMEDAD;
+    campos += "=";
+    campos += String(humedad, 2);
+    return campos;
+}
 }
 
 GestorThingSpeak::GestorThingSpeak()
@@ -41,7 +53,20 @@ void GestorThingSpeak::actualizar(const GestorSensores& sensores) {
         if (WiFi.status() == WL_CONNECTED &&
             time(nullptr) >= EPOCH_MINIMO_VALIDO && puedeEnviar()) {
             const float voltaje = _voltajeProgramado;
-            const bool exito = enviarVoltajePotenciometro(voltaje);
+            bool exito;
+            if (sensores.datosDhtValidos()) {
+                String campos = camposClima(sensores.obtenerTemperatura(),
+                                             sensores.obtenerHumedad());
+                campos += "&field";
+                campos += FIELD_VOLTAJE_POT;
+                campos += "=";
+                campos += String(voltaje, 3);
+                _ultimaActualizacionClimaMs = ahoraMs;
+                _huboActualizacionClima = true;
+                exito = realizarPeticion(campos);
+            } else {
+                exito = enviarVoltajePotenciometro(voltaje);
+            }
             _resultadoVoltaje = voltaje;
             _resultadoVoltajeExito = exito;
             _resultadoVoltajeDisponible = true;
@@ -79,15 +104,7 @@ void GestorThingSpeak::actualizar(const GestorSensores& sensores) {
 }
 
 bool GestorThingSpeak::enviarClima(float temperatura, float humedad) {
-    String queryParams = "field";
-    queryParams += FIELD_TEMPERATURA;
-    queryParams += "=";
-    queryParams += String(temperatura, 2);
-    queryParams += "&field";
-    queryParams += FIELD_HUMEDAD;
-    queryParams += "=";
-    queryParams += String(humedad, 2);
-    return realizarPeticion(queryParams);
+    return realizarPeticion(camposClima(temperatura, humedad));
 }
 
 bool GestorThingSpeak::enviarVoltajePotenciometro(float voltaje) {

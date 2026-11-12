@@ -43,6 +43,10 @@ void assertCampo(unsigned int indice, const char* campo) {
   TEST_ASSERT_TRUE(indice < urlsPrueba.size());
   TEST_ASSERT_NOT_EQUAL(std::string::npos, urlsPrueba[indice].find(campo));
 }
+void assertSinCampo(unsigned int indice, const char* campo) {
+  TEST_ASSERT_TRUE(indice < urlsPrueba.size());
+  TEST_ASSERT_EQUAL(std::string::npos, urlsPrueba[indice].find(campo));
+}
 void assertResultado(GestorThingSpeak& gestor, bool esperado, float voltajeEsperado) {
   bool exito = !esperado; float voltaje = -1;
   TEST_ASSERT_TRUE(gestor.consumirResultadoEnvioVoltaje(exito, voltaje));
@@ -55,24 +59,30 @@ void test_pendiente_tiene_prioridad_al_vencer_cooldown() {
   GestorSensores sensores(PIN_DHT22, PIN_POTENCIOMETRO); sensores.iniciar();
   GestorThingSpeak gestor; gestor.iniciar(); gestor.actualizar(sensores);
   TEST_ASSERT_EQUAL(1, urlsPrueba.size()); assertCampo(0, "field1=24.00&field2=60.00");
+  assertSinCampo(0, "field3=");
   gestor.programarEnvioVoltaje(1.25f);
+  temperaturaPrueba = 28; humedadPrueba = 55;
   tiempoPrueba = MIN_ESCRITURA_PRUEBA - 1; gestor.actualizar(sensores);
   TEST_ASSERT_EQUAL(1, urlsPrueba.size());
-  tiempoPrueba++; gestor.actualizar(sensores);
-  TEST_ASSERT_EQUAL(2, urlsPrueba.size()); assertCampo(1, "field3=1.250");
+  sensores.actualizar(); tiempoPrueba++; gestor.actualizar(sensores);
+  TEST_ASSERT_EQUAL(2, urlsPrueba.size());
+  assertCampo(1, "field1=28.00&field2=55.00&field3=1.250");
   assertResultado(gestor, true, 1.25f);
   gestor.actualizar(sensores); TEST_ASSERT_EQUAL(2, urlsPrueba.size());
   tiempoPrueba += MIN_ESCRITURA_PRUEBA; gestor.actualizar(sensores);
   TEST_ASSERT_EQUAL(3, urlsPrueba.size()); assertCampo(2, "field1=");
+  assertSinCampo(2, "field3=");
 }
 
 void test_dht_invalido_no_bloquea_y_ultimo_valor_reemplaza_anterior() {
-  temperaturaPrueba = NAN;
   GestorSensores sensores(PIN_DHT22, PIN_POTENCIOMETRO); sensores.iniciar();
+  temperaturaPrueba = NAN; tiempoPrueba = INTERVALO_LECTURA_DHT_MS;
+  sensores.actualizar();
   GestorThingSpeak gestor; gestor.iniciar();
   gestor.programarEnvioVoltaje(1.0f); gestor.programarEnvioVoltaje(2.75f);
   gestor.actualizar(sensores);
   TEST_ASSERT_EQUAL(1, urlsPrueba.size()); assertCampo(0, "field3=2.750");
+  assertSinCampo(0, "field1="); assertSinCampo(0, "field2=");
   assertResultado(gestor, true, 2.75f);
 }
 
@@ -92,12 +102,15 @@ void test_fallo_reintenta_desde_fin_y_notifica_cada_resultado() {
   GestorSensores sensores(PIN_DHT22, PIN_POTENCIOMETRO); sensores.iniciar();
   GestorThingSpeak gestor; gestor.iniciar(); gestor.programarEnvioVoltaje(2.0f);
   codigoPrueba = -1; duracionHttpPrueba = 3000; gestor.actualizar(sensores);
-  TEST_ASSERT_EQUAL(1, urlsPrueba.size()); assertResultado(gestor, false, 2.0f);
+  TEST_ASSERT_EQUAL(1, urlsPrueba.size());
+  assertCampo(0, "field1=24.00&field2=60.00&field3=2.000");
+  assertResultado(gestor, false, 2.0f);
   codigoPrueba = 200; duracionHttpPrueba = 0;
   tiempoPrueba = 3000 + MIN_ESCRITURA_PRUEBA - 1; gestor.actualizar(sensores);
   TEST_ASSERT_EQUAL(1, urlsPrueba.size());
   tiempoPrueba++; gestor.actualizar(sensores);
-  TEST_ASSERT_EQUAL(2, urlsPrueba.size()); assertCampo(1, "field3=2.000");
+  TEST_ASSERT_EQUAL(2, urlsPrueba.size());
+  assertCampo(1, "field1=24.00&field2=60.00&field3=2.000");
   assertResultado(gestor, true, 2.0f);
 }
 

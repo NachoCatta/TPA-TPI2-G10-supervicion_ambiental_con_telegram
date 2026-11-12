@@ -93,7 +93,7 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
    * Implementado: reintentar cada 10 s mediante `millis()`, sin bucle esperando conexión; SDK sin reconexión automática y sin persistir credenciales. `configTime()` solicita hora UTC al conectarse, pero no espera su recepción ni prueba que ya sea válida.
 2. **Cliente HTTPS para ThingSpeak (`GestorThingSpeak`):**
    * Configurar temporizador no bloqueante (ej. cada 20 o 30 segundos, respetando el límite mínimo de 15 s de ThingSpeak gratuito) para enviar Temperatura (`field1`) y Humedad (`field2`) mediante HTTPS usando la **Write API Key**.
-   * `/thingup` captura el voltaje y programa un único pedido para `field3`; otro pedido reemplaza el pendiente. Tiene prioridad sobre clima, incluso con DHT inválido, y espera conexión, hora válida y turno.
+   * `/thingup` captura el voltaje y programa un único pedido para `field3`; otro pedido reemplaza el pendiente. Espera conexión, hora válida y turno. En ese turno se envían juntos `field1`, `field2` y `field3` si el DHT es válido; si no, solo `field3`. Sin pedido, clima envía solo `field1` y `field2`. La petición combinada reinicia el intervalo de clima.
    * Compartir el control de frecuencia: esperar 15,5 s desde el final del intento, incluso si falla el inicio HTTP. Un fallo conserva el pedido para reintentar; el resultado incluye el voltaje intentado y solo confirma éxito con HTTP 200 y Entry ID positivo. El intervalo de clima es configurable por separado. No publicar DHT inválido.
    * Los límites de conexión, TLS y lectura son de 10 s cada uno; las operaciones siguen siendo síncronas y DNS no necesariamente queda acotado.
 
