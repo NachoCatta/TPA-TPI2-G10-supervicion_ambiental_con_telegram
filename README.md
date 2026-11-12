@@ -36,7 +36,7 @@ El código propio no agrega `delay()` ni un bucle esperando Wi-Fi o NTP. Los tie
 
 ## ThingSpeak
 
-`GestorThingSpeak` publica temperatura y humedad en los campos 1 y 2 en cuanto hay una lectura válida, red y hora NTP; las actualizaciones siguientes respetan una ventana compartida de al menos 15,5 s desde el fin de cada intento GET. También ofrece el envío de voltaje en el campo 3. Usa HTTPS con validación del certificado del servidor y la clave/canal de `secrets.h`. La escritura solo se confirma si ThingSpeak devuelve HTTP 200 y un Entry ID numérico mayor que cero.
+`GestorThingSpeak` publica temperatura y humedad en los campos 1 y 2 cuando hay una lectura válida, red y hora NTP. `/thingup` captura el voltaje y programa su envío al campo 3: un nuevo pedido reemplaza el único pendiente. El pedido espera red, hora válida y el turno de escritura, y tiene prioridad sobre clima incluso si el DHT falla. Si el intento falla, permanece pendiente y se reintenta; Telegram informa el fallo y el éxito real con el valor correspondiente. La ventana compartida es de 15,5 s desde el fin de cada intento, incluso si falla el inicio HTTP, independiente del intervalo configurable de clima. Usa HTTPS con validación del certificado del servidor y la clave/canal de `secrets.h`. La escritura solo se confirma si ThingSpeak devuelve HTTP 200 y un Entry ID numérico mayor que cero.
 
 Las peticiones tienen límites individuales de 10 s para conexión, handshake TLS y lectura, pero `HTTPClient` es síncrono: estos límites no vuelven no bloqueante al `loop()` ni limitan necesariamente la resolución DNS. Hay que medir la operación en la placa y verificar el temporizador del actuador bajo carga de red.
 
@@ -64,6 +64,7 @@ Para estudiar la implementación y explicarla en la defensa, ver [cómo funciona
 
 ```sh
 pio test -e native
+pio test -e native_thingspeak
 ```
 
 Se necesita un compilador C/C++ (`gcc` y `g++`) en PATH. En Windows se puede instalar el de PlatformIO:
@@ -74,7 +75,7 @@ $env:PATH = "$env:USERPROFILE\.platformio\packages\toolchain-gccmingw32\bin;$env
 pio test -e native
 ```
 
-Las pruebas nativas compilan las bibliotecas reales de sensores, actuadores y Wi-Fi. Estas últimas comprueban intervalos de reintento, caída/recuperación, LED azul, solicitud NTP, desbordamiento de `millis()` y continuidad del temporizador mientras se reintenta. Los archivos de `test/soporte/` sustituyen reloj, GPIO, lecturas, Wi-Fi y configuración NTP; solo se incluyen en el entorno `native`. No verifican radio real, recepción de hora, calibración eléctrica, OLED ni servicios de Internet.
+Las pruebas nativas compilan las bibliotecas reales de sensores, actuadores y Wi-Fi. Estas últimas comprueban intervalos de reintento, caída/recuperación, LED azul, solicitud NTP, desbordamiento de `millis()` y continuidad del temporizador mientras se reintenta. El entorno `native_thingspeak` prueba el gestor ThingSpeak con HTTP simulado, aislado del resto de pruebas. Los archivos de soporte sustituyen reloj, GPIO, lecturas y servicios de red según el entorno. No verifican radio real, recepción de hora, calibración eléctrica, OLED ni servicios de Internet.
 
 El 11/11/2026 pasaron 27 pruebas nativas: 3 del parser, 16 de lógica y 8 de Wi-Fi. Cppcheck no emitió diagnósticos sobre el código propio analizado. La ejecución integral del bot y de los servicios reales permanece pendiente.
 

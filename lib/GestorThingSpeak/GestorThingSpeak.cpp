@@ -7,8 +7,7 @@
 #include "CertificadoThingSpeak.h"
 
 namespace {
-constexpr unsigned long INTERVALO_MINIMO_THINGSPEAK_MS =
-    INTERVALO_THINGSPEAK_MS;
+constexpr unsigned long INTERVALO_MINIMO_THINGSPEAK_MS = 15500UL;
 constexpr uint16_t TIMEOUT_THINGSPEAK_MS = 10000U;
 constexpr unsigned long TIMEOUT_TLS_SEG = 10UL;
 constexpr time_t EPOCH_MINIMO_VALIDO = 1700000000;
@@ -21,18 +20,37 @@ GestorThingSpeak::GestorThingSpeak()
       _ultimoEnvioMs(0),
       _ultimaActualizacionClimaMs(0),
       _huboEnvio(false),
-      _huboActualizacionClima(false) {}
+      _huboActualizacionClima(false),
+      _voltajePendiente(false), _voltajeProgramado(0),
+      _resultadoVoltajeDisponible(false), _resultadoVoltajeExito(false),
+      _resultadoVoltaje(0) {}
 
 void GestorThingSpeak::iniciar() {
     _ultimoEnvioMs = 0;
     _ultimaActualizacionClimaMs = millis();
     _huboEnvio = false;
     _huboActualizacionClima = false;
+    _voltajePendiente = false;
+    _resultadoVoltajeDisponible = false;
     Serial.printf("[ThingSpeak] Canal configurado: %lu\n", _channelId);
 }
 
 void GestorThingSpeak::actualizar(const GestorSensores& sensores) {
     unsigned long ahoraMs = millis();
+    if (_voltajePendiente) {
+        if (WiFi.status() == WL_CONNECTED &&
+            time(nullptr) >= EPOCH_MINIMO_VALIDO && puedeEnviar()) {
+            const float voltaje = _voltajeProgramado;
+            const bool exito = enviarVoltajePotenciometro(voltaje);
+            _resultadoVoltaje = voltaje;
+            _resultadoVoltajeExito = exito;
+            _resultadoVoltajeDisponible = true;
+            if (exito) {
+                _voltajePendiente = false;
+            }
+        }
+        return;
+    }
     if (_huboActualizacionClima &&
         ahoraMs - _ultimaActualizacionClimaMs < INTERVALO_THINGSPEAK_MS) {
         return;
@@ -78,6 +96,23 @@ bool GestorThingSpeak::enviarVoltajePotenciometro(float voltaje) {
     queryParams += "=";
     queryParams += String(voltaje, 3);
     return realizarPeticion(queryParams);
+}
+
+void GestorThingSpeak::programarEnvioVoltaje(float voltaje) {
+    _voltajeProgramado = voltaje;
+    _voltajePendiente = true;
+    _resultadoVoltajeDisponible = false;
+}
+
+bool GestorThingSpeak::consumirResultadoEnvioVoltaje(bool& exito,
+                                                     float& voltaje) {
+    if (!_resultadoVoltajeDisponible) {
+        return false;
+    }
+    exito = _resultadoVoltajeExito;
+    voltaje = _resultadoVoltaje;
+    _resultadoVoltajeDisponible = false;
+    return true;
 }
 
 bool GestorThingSpeak::puedeEnviar() const {
@@ -133,6 +168,8 @@ bool GestorThingSpeak::realizarPeticion(const String& queryParams) {
     http.setTimeout(TIMEOUT_THINGSPEAK_MS);
     if (!http.begin(cliente, url)) {
         Serial.println(F("[ThingSpeak] No se pudo iniciar la peticion HTTP."));
+        _ultimoEnvioMs = millis();
+        _huboEnvio = true;
         return false;
     }
 

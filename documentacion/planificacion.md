@@ -93,8 +93,9 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
    * Implementado: reintentar cada 10 s mediante `millis()`, sin bucle esperando conexión; SDK sin reconexión automática y sin persistir credenciales. `configTime()` solicita hora UTC al conectarse, pero no espera su recepción ni prueba que ya sea válida.
 2. **Cliente HTTPS para ThingSpeak (`GestorThingSpeak`):**
    * Configurar temporizador no bloqueante (ej. cada 20 o 30 segundos, respetando el límite mínimo de 15 s de ThingSpeak gratuito) para enviar Temperatura (`field1`) y Humedad (`field2`) mediante HTTPS usando la **Write API Key**.
-   * Implementar función dedicada para `/thingup` que envíe el voltaje actual del potenciómetro (`field3`) hacia ThingSpeak y retorne el resultado de la operación.
-   * Compartir el control de frecuencia entre envíos periódicos y manuales: esperar 15,5 s desde el final del intento GET, incluso ante una respuesta fallida. Si una solicitud manual no puede enviarse ahora, retornar `false` e informar al usuario; retornar `true` solo cuando el servicio confirme la escritura. No publicar DHT inválido.
+   * `/thingup` captura el voltaje y programa un único pedido para `field3`; otro pedido reemplaza el pendiente. Tiene prioridad sobre clima, incluso con DHT inválido, y espera conexión, hora válida y turno.
+   * Compartir el control de frecuencia: esperar 15,5 s desde el final del intento, incluso si falla el inicio HTTP. Un fallo conserva el pedido para reintentar; el resultado incluye el voltaje intentado y solo confirma éxito con HTTP 200 y Entry ID positivo. El intervalo de clima es configurable por separado. No publicar DHT inválido.
+   * Los límites de conexión, TLS y lectura son de 10 s cada uno; las operaciones siguen siendo síncronas y DNS no necesariamente queda acotado.
 
 ---
 
@@ -107,7 +108,7 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
    * **`/start`**: Envía mensaje de bienvenida junto con un teclado inline (`sendMessageWithInlineKeyboard`) con botones de acceso rápido (por ejemplo: *"🌡️ Ver Clima"*, *"⚡ Encender Relé"*, *"🔌 Apagar Relé"*, *"📈 Enviar Pote (/thingup)"*, *"🖥️ Display LED"*, *"🖥️ Display Pote"*, *"🖥️ Display DHT"*).
    * **`/clima`**: Responde con los últimos valores registrados de temperatura y humedad del DHT22.
    * **`/rele<on/off> <time>`**: Parsea el comando y el parámetro de tiempo (ej. `/releon 10` o `/releoff`), activa el actuador de forma no bloqueante y confirma la acción por Telegram.
-   * **`/thingup`**: Envía el voltaje del potenciómetro a ThingSpeak e informa el valor en el chat.
+   * **`/thingup`**: Programa el voltaje capturado e informa luego el fallo con reintento o la confirmación real y su valor.
    * **Alerta Automática de Umbral Crítico**: En el ciclo principal, si el voltaje del potenciómetro supera el umbral crítico definido, el ESP32 envía proactivamente un mensaje de `"⚠️ ALERTA DE SEGURIDAD: Voltaje crítico superado (X.XX V)"` al `chat_id` registrado.
    * **`/display<cmd>`**: Analiza el sufijo del comando (`/displayled`, `/displaypot`, `/displaydht`, etc.), actualiza la pantalla OLED con la información solicitada (o muestra `"Comando no identificado"` en el OLED si el sufijo no es válido) y confirma al usuario por Telegram.
    * Procesar los callbacks de los botones inline, autorizar el chat configurado y validar completamente los argumentos. Mantener un aviso pendiente si falla el envío de una alarma: consumir el evento de sensores no equivale a entregarlo.

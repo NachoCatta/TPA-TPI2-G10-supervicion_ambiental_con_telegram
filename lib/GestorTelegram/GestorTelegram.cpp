@@ -54,6 +54,16 @@ void GestorTelegram::actualizar(GestorSensores &sensores,
     return;
   }
 
+  bool exito = false;
+  float voltaje = 0;
+  if (thingSpeak.consumirResultadoEnvioVoltaje(exito, voltaje)) {
+    String mensaje = exito ? F("Voltaje enviado a ThingSpeak: ")
+                           : F("Fallo el envio de voltaje; se reintentara: ");
+    mensaje += String(voltaje, 3);
+    mensaje += F(" V.");
+    _bot.sendMessage(String(SECRET_CHAT_ID), mensaje, "");
+  }
+
   unsigned long ahoraMs = millis();
   if (!_huboConsultaTelegram ||
       ahoraMs - _ultimaConsultaMs >= INTERVALO_TELEGRAM_POLL_MS) {
@@ -142,15 +152,8 @@ void GestorTelegram::procesarComando(
 
   if (comando == F("/thingup")) {
     sensores.forzarLecturaPotenciometro();
-    bool enviado =
-        thingSpeak.enviarVoltajePotenciometro(sensores.obtenerVoltajePot());
-    _bot.sendMessage(
-        chatId,
-        enviado
-            ? F("Voltaje enviado correctamente a ThingSpeak.")
-            : F("No se envio el voltaje. Puede deberse a conexion, frecuencia "
-                "o servicio."),
-        "");
+    thingSpeak.programarEnvioVoltaje(sensores.obtenerVoltajePot());
+    _bot.sendMessage(chatId, F("Envio de voltaje programado"), "");
     return;
   }
 
