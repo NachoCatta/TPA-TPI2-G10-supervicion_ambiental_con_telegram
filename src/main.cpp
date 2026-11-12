@@ -31,6 +31,6 @@ void loop() {
   actuadores.actualizar();
   wifi.actualizar();
   actuadores.fijarLedAzul(wifi.estaConectado());
-  thingSpeak.actualizar(sensores);
   telegram.actualizar(sensores, actuadores, display, thingSpeak);
+  thingSpeak.actualizar(sensores);
 }

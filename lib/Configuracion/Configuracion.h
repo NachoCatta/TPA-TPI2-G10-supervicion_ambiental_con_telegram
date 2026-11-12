@@ -33,7 +33,7 @@ constexpr unsigned long MAX_TIEMPO_RELE_SEGUNDOS = 3600UL; // Límite del proyec
 constexpr unsigned long INTERVALO_LECTURA_DHT_MS = 2500UL; // 2.5 segundos
 constexpr unsigned long INTERVALO_LECTURA_POT_MS = 250UL;  // 250 ms
 constexpr unsigned long INTERVALO_THINGSPEAK_MS =
-    20000UL; // 20 segundos (mínimo 15s en ThingSpeak Free)
+    15500UL; // 15,5 segundos; ThingSpeak Free exige al menos 15 s
 constexpr unsigned long INTERVALO_TELEGRAM_POLL_MS = 1000UL; // 1 segundo
 constexpr unsigned long COOLDOWN_ALERTA_VOLTAJE_MS =
     30000UL; // 30 segundos mínimo entre alertas

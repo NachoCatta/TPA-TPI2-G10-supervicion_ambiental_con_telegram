@@ -5,8 +5,8 @@
 #include <time.h>
 
 namespace {
-constexpr unsigned long TELEGRAM_CLIENT_TIMEOUT_SEG = 3UL;
-constexpr unsigned int TELEGRAM_RESPUESTA_TIMEOUT_MS = 3000U;
+constexpr unsigned long TELEGRAM_CLIENT_TIMEOUT_SEG = 10UL;
+constexpr unsigned int TELEGRAM_RESPUESTA_TIMEOUT_MS = 10000U;
 constexpr unsigned long INTERVALO_REINTENTO_ALERTA_MS = 5000UL;
 constexpr time_t EPOCH_MINIMO_VALIDO = 1700000000;
 

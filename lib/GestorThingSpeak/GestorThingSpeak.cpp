@@ -7,9 +7,10 @@
 #include "CertificadoThingSpeak.h"
 
 namespace {
-constexpr unsigned long INTERVALO_MINIMO_THINGSPEAK_MS = 15500UL;
-constexpr uint16_t TIMEOUT_THINGSPEAK_MS = 2000U;
-constexpr unsigned long TIMEOUT_TLS_SEG = 2UL;
+constexpr unsigned long INTERVALO_MINIMO_THINGSPEAK_MS =
+    INTERVALO_THINGSPEAK_MS;
+constexpr uint16_t TIMEOUT_THINGSPEAK_MS = 10000U;
+constexpr unsigned long TIMEOUT_TLS_SEG = 10UL;
 constexpr time_t EPOCH_MINIMO_VALIDO = 1700000000;
 const char URL_THINGSPEAK[] = "https://api.thingspeak.com/update";
 }
@@ -19,33 +20,43 @@ GestorThingSpeak::GestorThingSpeak()
       _channelId(SECRET_THINGSPEAK_CHANNEL_ID),
       _ultimoEnvioMs(0),
       _ultimaActualizacionClimaMs(0),
-      _huboEnvio(false) {}
+      _huboEnvio(false),
+      _huboActualizacionClima(false) {}
 
 void GestorThingSpeak::iniciar() {
     _ultimoEnvioMs = 0;
     _ultimaActualizacionClimaMs = millis();
     _huboEnvio = false;
+    _huboActualizacionClima = false;
     Serial.printf("[ThingSpeak] Canal configurado: %lu\n", _channelId);
 }
 
 void GestorThingSpeak::actualizar(const GestorSensores& sensores) {
     unsigned long ahoraMs = millis();
-    if (ahoraMs - _ultimaActualizacionClimaMs < INTERVALO_THINGSPEAK_MS) {
+    if (_huboActualizacionClima &&
+        ahoraMs - _ultimaActualizacionClimaMs < INTERVALO_THINGSPEAK_MS) {
         return;
     }
 
     if (!sensores.datosDhtValidos()) {
+        if (ahoraMs - _ultimaActualizacionClimaMs <
+            INTERVALO_LECTURA_DHT_MS) {
+            return;
+        }
         _ultimaActualizacionClimaMs = ahoraMs;
+        _huboActualizacionClima = false;
         Serial.println(
             F("[ThingSpeak] Se omite clima: la ultima lectura DHT22 no es valida."));
         return;
     }
 
-    if (!puedeEnviar()) {
+    if (WiFi.status() != WL_CONNECTED ||
+        time(nullptr) < EPOCH_MINIMO_VALIDO || !puedeEnviar()) {
         return;
     }
 
     _ultimaActualizacionClimaMs = ahoraMs;
+    _huboActualizacionClima = true;
     enviarClima(sensores.obtenerTemperatura(), sensores.obtenerHumedad());
 }
 

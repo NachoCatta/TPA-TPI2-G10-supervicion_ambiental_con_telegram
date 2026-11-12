@@ -24,6 +24,7 @@ private:
     unsigned long _ultimoEnvioMs;
     unsigned long _ultimaActualizacionClimaMs;
     bool _huboEnvio;
+    bool _huboActualizacionClima;
 };
 
 #endif // GESTOR_THINGSPEAK_H

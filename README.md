@@ -36,9 +36,11 @@ El código propio no agrega `delay()` ni un bucle esperando Wi-Fi o NTP. Los tie
 
 ## ThingSpeak
 
-`GestorThingSpeak` publica temperatura y humedad en los campos 1 y 2 cada 20 s, y ofrece el envío de voltaje en el campo 3. Usa HTTPS con validación del certificado del servidor, hora NTP válida y la clave/canal de `secrets.h`. Una ventana compartida de 15,5 s comienza al finalizar cada intento GET, incluso si falla la respuesta, para evitar escrituras prematuras. La escritura solo se confirma si ThingSpeak devuelve HTTP 200 y un Entry ID numérico mayor que cero.
+`GestorThingSpeak` publica temperatura y humedad en los campos 1 y 2 en cuanto hay una lectura válida, red y hora NTP; las actualizaciones siguientes respetan una ventana compartida de al menos 15,5 s desde el fin de cada intento GET. También ofrece el envío de voltaje en el campo 3. Usa HTTPS con validación del certificado del servidor y la clave/canal de `secrets.h`. La escritura solo se confirma si ThingSpeak devuelve HTTP 200 y un Entry ID numérico mayor que cero.
 
-Las peticiones tienen límites de 2 s para conexión, handshake TLS y lectura, pero `HTTPClient` es síncrono: estos límites no vuelven no bloqueante al `loop()` ni limitan necesariamente la resolución DNS. Hay que medir la operación en la placa y verificar el temporizador del actuador bajo carga de red.
+Las peticiones tienen límites individuales de 10 s para conexión, handshake TLS y lectura, pero `HTTPClient` es síncrono: estos límites no vuelven no bloqueante al `loop()` ni limitan necesariamente la resolución DNS. Hay que medir la operación en la placa y verificar el temporizador del actuador bajo carga de red.
+
+El cliente de Telegram también permite hasta 10 s para conexión TLS y respuesta. La consulta del bot requiere que el Wi-Fi esté conectado y la hora NTP sea válida.
 
 ## Elegir la pantalla desde main
 
