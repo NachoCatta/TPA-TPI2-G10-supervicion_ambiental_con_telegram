@@ -1,7 +1,7 @@
 # Plan de Trabajo - Trabajo Práctico Integrador N°2 (TA4k01/26)
 **Proyecto:** Supervisión Ambiental y Actuación Remota con ESP32, ThingSpeak y Bot de Telegram
 
-**Estado al 11/11/2026:** sensores/actuadores, selección OLED, ThingSpeak y Telegram implementados. Wi-Fi incluye reintentos, LED azul y solicitud NTP. Pasaron 27 pruebas nativas (3 del parser, 16 de lógica y 8 de Wi-Fi) y Cppcheck no emitió diagnósticos sobre el código propio analizado. La ejecución en Wokwi, la placa UTN y la prueba integral del bot y los servicios reales siguen pendientes. Ver [las tareas, archivos y criterios de aceptación](tareas_pendientes.md).
+**Estado al 12/11/2026:** sensores/actuadores, selección OLED, ThingSpeak y Telegram implementados. El relé GPIO 14, configurado activo en HIGH, y el LED verde GPIO 23 reciben la misma orden; la polaridad del módulo físico aún debe validarse. Wi-Fi incluye reintentos, LED azul y solicitud NTP. Pasaron 35 pruebas nativas (3 del parser, 17 de lógica, 8 de Wi-Fi y 7 de ThingSpeak) y Cppcheck no emitió diagnósticos sobre el código propio analizado. La ejecución en Wokwi, la placa UTN y la prueba integral del bot y los servicios reales siguen pendientes. Ver [las tareas, archivos y criterios de aceptación](tareas_pendientes.md).
 
 ---
 
@@ -26,12 +26,13 @@ El objetivo del proyecto es desarrollar un sistema embebido basado en el microco
 | :--- | :--- | :--- | :--- |
 | **Sensor DHT22** | `GPIO 33` | Digital (protocolo propio del DHT) | Medición de Temperatura (°C) y Humedad Relativa (%) |
 | **Potenciómetro** | `GPIO 32` | Entrada Analógica (`ADC1_CH4`) | ADC bruto para porcentaje y milivoltios calibrados para voltaje; verificar rango real |
-| **LED Verde** | `GPIO 23` | Salida Digital | Actuador de demostración del comando `/rele`; no es el relé físico |
-| **LED Azul** | `GPIO 2` | Salida Digital | Indicador de estado / conectividad o segundo actuador |
+| **Relé** | `GPIO 14` | Salida Digital | Orden del actuador; activación HIGH configurada, pendiente de validación física |
+| **LED Verde** | `GPIO 23` | Salida Digital | Indicador de la misma orden del relé |
+| **LED Azul** | `GPIO 2` | Salida Digital | Indicador independiente de conectividad Wi-Fi |
 | **Display OLED (SDA)** | `GPIO 21` | I²C Datos (`SDA`) | OLED SSD1306 o SH1106 (128x64, dir. `0x3C`) |
 | **Display OLED (SCL)** | `GPIO 22` | I²C Reloj (`SCL`) | OLED SSD1306 o SH1106 (128x64, dir. `0x3C`) |
 
-El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utiliza el LED verde como actuador, permitido por el enunciado. Antes de optar por el relé físico, verificar su polaridad y adaptar el control. GPIO 2 proviene de la consigna; confirmar el LED azul en la placa. El controlador OLED, su geometría y dirección I²C requieren validación física. El proyecto admite SSD1306 y SH1106; seleccionar uno en la instancia de `GestorDisplay` en main, según explica el README.
+El pinout del kit ubica el relé en GPIO 14, pero no especifica su polaridad. Se eligió HIGH como nivel activo inicial, configurable en `NIVEL_RELE_ACTIVO`; confirmar polaridad, alimentación y cableado en la placa y cambiar a LOW si corresponde. El relé y el LED verde reciben la misma orden mediante escrituras consecutivas en salidas separadas; `estaReleEncendido()` indica la orden, no verifica contactos. La inicialización ordena apagar ambos sin garantizar su estado anterior a `setup()`. GPIO 2 proviene de la consigna; confirmar el LED azul en la placa. El controlador OLED, su geometría y dirección I²C requieren validación física. El proyecto admite SSD1306 y SH1106; seleccionar uno en la instancia de `GestorDisplay` en main, según explica el README.
 
 ---
 
@@ -68,7 +69,7 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
    * Mantener el último valor DHT bueno, pero marcar como inválida la última lectura si falla. Consumidores como display y ThingSpeak deben consultar `datosDhtValidos()`.
    * Generar un evento local por episodio crítico con histéresis y cooldown. Un segundo episodio que siga activo al vencer la espera debe producir su evento. Si termina antes, no generar un aviso tardío. El envío efectivo a Telegram pertenece a la tarea 3.
 2. **Módulo de Actuadores (`GestorActuadores`):**
-   * Configurar `GPIO 23` (LED verde) y `GPIO 2` (LED azul) como salidas digitales.
+   * Configurar `GPIO 14` (relé), `GPIO 23` (LED verde) y `GPIO 2` (LED azul) como salidas digitales. El constructor `GestorActuadores(pinRele, pinLedVerde, pinLedAzul)` recibe los tres pines en ese orden.
    * Implementar máquina de estados no bloqueante para el comando `/rele<on/off> <time>`:
      * Al activar con tiempo $t$ segundos, programar un temporizador de una sola ejecución para apagar la salida.
      * La expiración no depende de que el ciclo principal termine una operación de red.
@@ -156,7 +157,7 @@ El pinout del kit ubica el **relé físico en GPIO 14**. El código actual utili
 
 ### B. Decisiones funcionales del grupo
 1. **Rol de los LEDs:**
-   * **LED Verde (`GPIO 23`):** Actuador de demostración para el futuro comando `/rele`. El relé físico en GPIO 14 es otro periférico.
+   * **Relé (`GPIO 14`) y LED verde (`GPIO 23`):** salidas separadas que reciben consecutivamente la misma orden del comando `/rele`, incluido el apagado temporizado. La simultaneidad eléctrica exacta y el funcionamiento físico no están verificados.
    * **LED Azul (`GPIO 2`):** Indicador del estado de la conexión Wi-Fi (encendido cuando está conectado).
 2. **Umbral Crítico del Potenciómetro:** Adoptado en **`2.50 V`**, con histéresis de `0.15 V` y cooldown de `30 s`. Son decisiones del proyecto, no valores numéricos fijados por el enunciado; verificar su comportamiento en la placa.
 3. **Subcomandos de `/display<cmd>`:**

@@ -7,7 +7,7 @@
 
 class GestorActuadores {
 public:
-  GestorActuadores(uint8_t pinActuador, uint8_t pinLedAzul);
+  GestorActuadores(uint8_t pinRele, uint8_t pinLedVerde, uint8_t pinLedAzul);
   ~GestorActuadores();
   GestorActuadores(const GestorActuadores &) = delete;
   GestorActuadores &operator=(const GestorActuadores &) = delete;
@@ -15,7 +15,7 @@ public:
   void iniciar();
   void actualizar();
 
-  // La API se llama "Rele" por el comando; main utiliza el LED verde (GPIO 23).
+  // Controla el relé y su indicador verde con la misma orden.
   void encenderRele();
   // Rechaza cero o tiempos mayores al máximo sin cambiar la salida actual.
   bool encenderReleTemporizado(unsigned long segundos);
@@ -25,6 +25,7 @@ public:
   void fijarLedAzul(bool encendido);
 
   // --- Consultas de Estado ---
+  // Estado ordenado, no confirma la posición del contacto físico.
   bool estaReleEncendido() const;
   bool estaLedAzulEncendido() const;
   bool tieneTemporizadorActivo() const;
@@ -36,9 +37,11 @@ public:
 private:
   static void alVencerTemporizador(void *contexto);
   void apagarSiVencido();
+  void fijarEstadoRele(bool encendido);
   void bloquear() const;
   void desbloquear() const;
-  uint8_t _pinActuador;
+  uint8_t _pinRele;
+  uint8_t _pinLedVerde;
   uint8_t _pinLedAzul;
   bool _estadoRele;
   bool _estadoLedAzul;

@@ -1,7 +1,7 @@
 #include "GestorActuadores.h"
 
-GestorActuadores::GestorActuadores(uint8_t pinActuador, uint8_t pinLedAzul)
-    : _pinActuador(pinActuador), _pinLedAzul(pinLedAzul), _estadoRele(false),
+GestorActuadores::GestorActuadores(uint8_t pinRele, uint8_t pinLedVerde, uint8_t pinLedAzul)
+    : _pinRele(pinRele), _pinLedVerde(pinLedVerde), _pinLedAzul(pinLedAzul), _estadoRele(false),
       _estadoLedAzul(false), _temporizadorActivo(false), _eventoApagadoAuto(false),
       _inicioTemporizadorMs(0), _duracionTemporizadorMs(0), _temporizador(nullptr) {}
 
@@ -25,10 +25,18 @@ void GestorActuadores::desbloquear() const {
 }
 
 void GestorActuadores::iniciar() {
-  pinMode(_pinActuador, OUTPUT);
-  pinMode(_pinLedAzul, OUTPUT);
-  digitalWrite(_pinActuador, LOW);
+  if (_temporizador) esp_timer_stop(_temporizador);
+  bloquear();
+  _estadoRele = false;
+  _temporizadorActivo = false;
+  _eventoApagadoAuto = false;
+  fijarEstadoRele(false);
+  desbloquear();
+  _estadoLedAzul = false;
   digitalWrite(_pinLedAzul, LOW);
+  pinMode(_pinRele, OUTPUT);
+  pinMode(_pinLedVerde, OUTPUT);
+  pinMode(_pinLedAzul, OUTPUT);
   if (!_temporizador) {
     esp_timer_create_args_t argumentos = {};
     argumentos.callback = alVencerTemporizador;
@@ -38,6 +46,11 @@ void GestorActuadores::iniciar() {
       Serial.println(F("[Actuadores] Error al crear temporizador."));
     }
   }
+}
+
+void GestorActuadores::fijarEstadoRele(bool encendido) {
+  digitalWrite(_pinRele, encendido ? NIVEL_RELE_ACTIVO : (NIVEL_RELE_ACTIVO == HIGH ? LOW : HIGH));
+  digitalWrite(_pinLedVerde, encendido ? HIGH : LOW);
 }
 
 void GestorActuadores::actualizar() {
@@ -53,7 +66,7 @@ void GestorActuadores::apagarSiVencido() {
   // Un callback anterior puede haber quedado pendiente al reprogramar.
   if (_estadoRele && _temporizadorActivo &&
       millis() - _inicioTemporizadorMs >= _duracionTemporizadorMs) {
-    digitalWrite(_pinActuador, LOW);
+    fijarEstadoRele(false);
     _estadoRele = false;
     _temporizadorActivo = false;
     _eventoApagadoAuto = true;
@@ -67,7 +80,7 @@ void GestorActuadores::encenderRele() {
   _estadoRele = true;
   _temporizadorActivo = false;
   _eventoApagadoAuto = false;
-  digitalWrite(_pinActuador, HIGH);
+  fijarEstadoRele(true);
   desbloquear();
 }
 
@@ -83,7 +96,7 @@ bool GestorActuadores::encenderReleTemporizado(unsigned long segundos) {
   _eventoApagadoAuto = false;
   _inicioTemporizadorMs = millis();
   _duracionTemporizadorMs = segundos * 1000UL;
-  digitalWrite(_pinActuador, HIGH);
+  fijarEstadoRele(true);
   desbloquear();
 
   if (esp_timer_start_once(_temporizador, static_cast<uint64_t>(segundos) * 1000000ULL) != ESP_OK) {
@@ -100,7 +113,7 @@ void GestorActuadores::apagarRele() {
   _estadoRele = false;
   _temporizadorActivo = false;
   _eventoApagadoAuto = false;
-  digitalWrite(_pinActuador, LOW);
+  fijarEstadoRele(false);
   desbloquear();
 }
 

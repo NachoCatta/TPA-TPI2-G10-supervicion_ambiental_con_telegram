@@ -158,7 +158,7 @@ display.mostrarEstadoLed(
     actuadores.segundosRestantesRele());
 ```
 
-Telegram pedirá mostrar el estado del LED. `GestorDisplay` se encargará de dibujar y enviar la imagen con el controlador elegido. Al pasar de SSD1306 a SH1106, esa llamada será idéntica.
+Telegram pide mostrar la orden compartida del relé GPIO 14 y el LED verde GPIO 23, el tiempo restante y el estado del LED azul de Wi-Fi. `estaReleEncendido()` informa la orden, no una lectura de los contactos físicos. `GestorDisplay` dibuja y envía la imagen con el controlador elegido. Al pasar de SSD1306 a SH1106, esa llamada será idéntica.
 
 ## Guion breve para la defensa
 

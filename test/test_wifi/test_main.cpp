@@ -82,18 +82,23 @@ void test_conexion_solicita_ntp_una_vez_y_suspende_reintentos() {
 
 void test_caida_y_recuperacion_actualizan_led_y_vuelven_a_solicitar_hora() {
   GestorWifi wifi;
-  GestorActuadores actuadores(PIN_LED_VERDE, PIN_LED_AZUL);
+  GestorActuadores actuadores(PIN_RELE, PIN_LED_VERDE, PIN_LED_AZUL);
   actuadores.iniciar();
   wifi.iniciar();
   WiFi.estado = WL_CONNECTED;
   wifi.actualizar();
   actuadores.fijarLedAzul(wifi.estaConectado());
   TEST_ASSERT_EQUAL(HIGH, salidasPrueba[PIN_LED_AZUL]);
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_RELE]);
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_LED_VERDE]);
+  actuadores.encenderRele();
   WiFi.estado = WL_DISCONNECTED;
   tiempoPrueba = 1000;
   wifi.actualizar();
   actuadores.fijarLedAzul(wifi.estaConectado());
   TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_LED_AZUL]);
+  TEST_ASSERT_EQUAL(HIGH, salidasPrueba[PIN_RELE]);
+  TEST_ASSERT_EQUAL(HIGH, salidasPrueba[PIN_LED_VERDE]);
   TEST_ASSERT_FALSE(wifi.estaConectado());
   tiempoPrueba = INTERVALO_REINTENTO_WIFI_MS;
   wifi.actualizar();
@@ -101,6 +106,10 @@ void test_caida_y_recuperacion_actualizan_led_y_vuelven_a_solicitar_hora() {
   WiFi.estado = WL_CONNECTED;
   wifi.actualizar();
   actuadores.fijarLedAzul(wifi.estaConectado());
+  TEST_ASSERT_EQUAL(HIGH, salidasPrueba[PIN_LED_AZUL]);
+  TEST_ASSERT_EQUAL(HIGH, salidasPrueba[PIN_RELE]);
+  TEST_ASSERT_EQUAL(HIGH, salidasPrueba[PIN_LED_VERDE]);
+  actuadores.apagarRele();
   TEST_ASSERT_EQUAL(HIGH, salidasPrueba[PIN_LED_AZUL]);
   TEST_ASSERT_EQUAL(2, solicitudesNtp);
 }
@@ -135,7 +144,7 @@ void test_reintento_al_desbordar_millis() {
 
 void test_temporizador_sigue_funcionando_durante_reintentos_wifi() {
   GestorWifi wifi;
-  GestorActuadores actuadores(PIN_LED_VERDE, PIN_LED_AZUL);
+  GestorActuadores actuadores(PIN_RELE, PIN_LED_VERDE, PIN_LED_AZUL);
   actuadores.iniciar();
   actuadores.encenderReleTemporizado(15);
   wifi.iniciar();
@@ -147,6 +156,8 @@ void test_temporizador_sigue_funcionando_durante_reintentos_wifi() {
   }
   vencerTemporizadorPrueba();
   TEST_ASSERT_FALSE(actuadores.estaReleEncendido());
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_RELE]);
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_LED_VERDE]);
   TEST_ASSERT_EQUAL(2, WiFi.intentos);
   TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_LED_AZUL]);
 }

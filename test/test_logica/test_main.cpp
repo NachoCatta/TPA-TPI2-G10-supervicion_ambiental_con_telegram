@@ -31,10 +31,26 @@ void muestrear(GestorSensores &sensores, unsigned long tiempo, uint32_t milivolt
   sensores.forzarLecturaPotenciometro();
 }
 
+void test_inicio_y_control_manual_del_rele_y_led_verde() {
+  salidasPrueba[PIN_RELE] = HIGH;
+  salidasPrueba[PIN_LED_VERDE] = HIGH;
+  GestorActuadores actuadores(PIN_RELE, PIN_LED_VERDE, PIN_LED_AZUL);
+  actuadores.iniciar();
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_RELE]);
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_LED_VERDE]);
+  actuadores.encenderRele();
+  TEST_ASSERT_EQUAL(HIGH, salidasPrueba[PIN_RELE]);
+  TEST_ASSERT_EQUAL(HIGH, salidasPrueba[PIN_LED_VERDE]);
+  actuadores.apagarRele();
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_RELE]);
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_LED_VERDE]);
+}
+
 void test_apagado_automatico_y_evento_unico() {
-  GestorActuadores actuadores(PIN_LED_VERDE, PIN_LED_AZUL);
+  GestorActuadores actuadores(PIN_RELE, PIN_LED_VERDE, PIN_LED_AZUL);
   actuadores.iniciar();
   TEST_ASSERT_TRUE(actuadores.encenderReleTemporizado(5));
+  TEST_ASSERT_EQUAL(HIGH, salidasPrueba[PIN_RELE]);
   TEST_ASSERT_EQUAL(HIGH, salidasPrueba[PIN_LED_VERDE]);
   tiempoPrueba = 4999;
   actuadores.actualizar();
@@ -43,45 +59,53 @@ void test_apagado_automatico_y_evento_unico() {
   tiempoPrueba = 5000;
   vencerTemporizadorPrueba(); // La red podría seguir bloqueando el loop.
   TEST_ASSERT_FALSE(actuadores.estaReleEncendido());
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_RELE]);
   TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_LED_VERDE]);
   TEST_ASSERT_TRUE(actuadores.consumirEventoApagadoAutomatico());
   TEST_ASSERT_FALSE(actuadores.consumirEventoApagadoAutomatico());
 }
 
 void test_tiempo_invalido_no_enciende_ni_reemplaza_temporizador() {
-  GestorActuadores actuadores(PIN_LED_VERDE, PIN_LED_AZUL);
+  GestorActuadores actuadores(PIN_RELE, PIN_LED_VERDE, PIN_LED_AZUL);
   actuadores.iniciar();
   TEST_ASSERT_FALSE(actuadores.encenderReleTemporizado(0));
   TEST_ASSERT_FALSE(actuadores.encenderReleTemporizado(ULONG_MAX));
   TEST_ASSERT_FALSE(actuadores.estaReleEncendido());
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_RELE]);
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_LED_VERDE]);
   TEST_ASSERT_TRUE(actuadores.encenderReleTemporizado(5));
   tiempoPrueba = 1000;
   TEST_ASSERT_FALSE(actuadores.encenderReleTemporizado(MAX_TIEMPO_RELE_SEGUNDOS + 1));
+  TEST_ASSERT_EQUAL(HIGH, salidasPrueba[PIN_RELE]);
+  TEST_ASSERT_EQUAL(HIGH, salidasPrueba[PIN_LED_VERDE]);
   TEST_ASSERT_EQUAL(4, actuadores.segundosRestantesRele());
 }
 
 void test_limite_maximo_del_temporizador() {
-  GestorActuadores actuadores(PIN_LED_VERDE, PIN_LED_AZUL);
+  GestorActuadores actuadores(PIN_RELE, PIN_LED_VERDE, PIN_LED_AZUL);
   actuadores.iniciar();
   TEST_ASSERT_TRUE(actuadores.encenderReleTemporizado(MAX_TIEMPO_RELE_SEGUNDOS));
   TEST_ASSERT_EQUAL(MAX_TIEMPO_RELE_SEGUNDOS, actuadores.segundosRestantesRele());
 }
 
 void test_error_al_programar_temporizador_apaga_salida() {
-  GestorActuadores actuadores(PIN_LED_VERDE, PIN_LED_AZUL);
+  GestorActuadores actuadores(PIN_RELE, PIN_LED_VERDE, PIN_LED_AZUL);
   actuadores.iniciar();
   fallarInicioTemporizadorPrueba() = true;
   TEST_ASSERT_FALSE(actuadores.encenderReleTemporizado(5));
   TEST_ASSERT_FALSE(actuadores.estaReleEncendido());
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_RELE]);
   TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_LED_VERDE]);
   TEST_ASSERT_FALSE(actuadores.consumirEventoApagadoAutomatico());
 }
 
 void test_apagado_manual_cancela_temporizador() {
-  GestorActuadores actuadores(PIN_LED_VERDE, PIN_LED_AZUL);
+  GestorActuadores actuadores(PIN_RELE, PIN_LED_VERDE, PIN_LED_AZUL);
   actuadores.iniciar();
   actuadores.encenderReleTemporizado(5);
   actuadores.apagarRele();
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_RELE]);
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_LED_VERDE]);
   tiempoPrueba = 6000;
   ultimoTemporizadorPrueba()->callback(ultimoTemporizadorPrueba()->arg);
   TEST_ASSERT_FALSE(actuadores.tieneTemporizadorActivo());
@@ -89,7 +113,7 @@ void test_apagado_manual_cancela_temporizador() {
 }
 
 void test_nueva_orden_reinicia_temporizador() {
-  GestorActuadores actuadores(PIN_LED_VERDE, PIN_LED_AZUL);
+  GestorActuadores actuadores(PIN_RELE, PIN_LED_VERDE, PIN_LED_AZUL);
   actuadores.iniciar();
   actuadores.encenderReleTemporizado(5);
   tiempoPrueba = 3000;
@@ -98,14 +122,18 @@ void test_nueva_orden_reinicia_temporizador() {
   // Callback ya despachado para el temporizador anterior.
   ultimoTemporizadorPrueba()->callback(ultimoTemporizadorPrueba()->arg);
   TEST_ASSERT_TRUE(actuadores.estaReleEncendido());
+  TEST_ASSERT_EQUAL(HIGH, salidasPrueba[PIN_RELE]);
+  TEST_ASSERT_EQUAL(HIGH, salidasPrueba[PIN_LED_VERDE]);
   TEST_ASSERT_EQUAL(8, actuadores.segundosRestantesRele());
   tiempoPrueba = 13000;
   vencerTemporizadorPrueba();
   TEST_ASSERT_FALSE(actuadores.estaReleEncendido());
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_RELE]);
+  TEST_ASSERT_EQUAL(LOW, salidasPrueba[PIN_LED_VERDE]);
 }
 
 void test_temporizador_al_desbordar_millis() {
-  GestorActuadores actuadores(PIN_LED_VERDE, PIN_LED_AZUL);
+  GestorActuadores actuadores(PIN_RELE, PIN_LED_VERDE, PIN_LED_AZUL);
   actuadores.iniciar();
   tiempoPrueba = ULONG_MAX - 500;
   actuadores.encenderReleTemporizado(2);
@@ -237,6 +265,7 @@ void test_cooldown_al_desbordar_millis() {
 
 int main() {
   UNITY_BEGIN();
+  RUN_TEST(test_inicio_y_control_manual_del_rele_y_led_verde);
   RUN_TEST(test_apagado_automatico_y_evento_unico);
   RUN_TEST(test_tiempo_invalido_no_enciende_ni_reemplaza_temporizador);
   RUN_TEST(test_limite_maximo_del_temporizador);

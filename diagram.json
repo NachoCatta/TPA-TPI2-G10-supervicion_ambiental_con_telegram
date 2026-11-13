@@ -44,6 +44,27 @@
       "top": 233.54,
       "left": 0.23,
       "attrs": { "i2cAddress": "0x3c" }
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "relay1",
+      "top": -153.6,
+      "left": 211.2,
+      "attrs": { "transistor": "npn" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledCarga",
+      "top": -124.8,
+      "left": 393.6,
+      "attrs": { "color": "yellow" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "rCarga",
+      "top": -48,
+      "left": 364.8,
+      "attrs": { "value": "330" }
     }
   ],
   "connections": [
@@ -62,7 +83,14 @@
     ["led2:C", "esp:GND.1", "black", ["v0"]],
     ["led1:C", "esp:GND.1", "black", ["v0"]],
     ["esp:23", "led1:A", "green", ["h43.24", "v86.4"]],
-    ["esp:2", "led2:A", "blue", ["h0"]]
+    ["esp:2", "led2:A", "blue", ["h0"]],
+    ["esp:14", "relay1:IN", "orange", ["h-19.2", "v-172.8", "h192"]],
+    ["esp:5V", "relay1:VCC", "red", ["h-28.8", "v-192", "h211.2"]],
+    ["esp:GND.1", "relay1:GND", "black", ["h-38.4", "v-211.2", "h230.4"]],
+    ["esp:3V3", "relay1:COM", "red", ["h-48", "v-230.4", "h384"]],
+    ["relay1:NO", "ledCarga:A", "gold", ["h19.2"]],
+    ["ledCarga:C", "rCarga:1", "gold", ["v19.2"]],
+    ["rCarga:2", "esp:GND.1", "black", ["v28.8", "h-432"]]
   ],
   "dependencies": {}
 }

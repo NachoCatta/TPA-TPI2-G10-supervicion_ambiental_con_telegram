@@ -6,7 +6,11 @@ Proyecto PlatformIO + Wokwi con DHT22, potenciómetro, OLED y control remoto imp
 
 La base local está implementada: sensores, alarma por umbral, actuador temporizado, vistas OLED, ThingSpeak y conexión/reconexión Wi-Fi con indicador azul y solicitud de hora NTP. `setup()` y `loop()` conservan solo llamadas a funciones/métodos. **Telegram ya está integrado** con comandos, callbacks inline y alertas pendientes. Para el sketch de Arduino IDE, consultar [sus instrucciones](documentacion/arduino_ide.md).
 
-El actuador de demostración es el **LED verde en GPIO 23**. Las funciones se llaman `encenderRele`/`apagarRele` por el comando del enunciado; no accionan el relé físico del kit, que está en GPIO 14. Confirmar el montaje antes de cambiar pines.
+El programa ordena el **relé en GPIO 14** y el **LED verde en GPIO 23** juntos, tanto en el control manual como al vencer el temporizador. Son dos salidas separadas escritas consecutivamente, sin garantía de simultaneidad eléctrica exacta. El LED azul en GPIO 2 indica Wi-Fi de forma independiente. Al iniciar, `iniciar()` ordena apagar el relé y el LED verde; no se garantiza su estado antes de esa inicialización. `estaReleEncendido()` informa la orden, no verifica los contactos del relé.
+
+La polaridad inicial `NIVEL_RELE_ACTIVO = HIGH` fue elegida para esta implementación: el pinout del kit identifica GPIO 14, pero no especifica la polaridad. Aún falta comprobar polaridad, alimentación, cableado y funcionamiento en la placa. Si el módulo requiere activación en LOW, se puede cambiar la constante sin rediseñar el gestor. `GestorActuadores` recibe los pines de relé, LED verde y LED azul, en ese orden.
+
+En el diagrama Wokwi, el módulo de relé usa entrada GPIO 14, alimentación `5V` y masa; se configura con transistor NPN para activación HIGH. Su contacto normalmente abierto conmuta una carga de demostración: un LED amarillo con resistencia de 330 Ω alimentado desde 3V3. Esa carga es independiente del LED verde GPIO 23. La simulación aún requiere ejecución y no valida el módulo físico.
 
 ## Compilar y preparar credenciales
 
@@ -77,7 +81,7 @@ pio test -e native
 
 Las pruebas nativas compilan las bibliotecas reales de sensores, actuadores y Wi-Fi. Estas últimas comprueban intervalos de reintento, caída/recuperación, LED azul, solicitud NTP, desbordamiento de `millis()` y continuidad del temporizador mientras se reintenta. El entorno `native_thingspeak` prueba el gestor ThingSpeak con HTTP simulado, aislado del resto de pruebas. Los archivos de soporte sustituyen reloj, GPIO, lecturas y servicios de red según el entorno. No verifican radio real, recepción de hora, calibración eléctrica, OLED ni servicios de Internet.
 
-El 11/11/2026 pasaron 27 pruebas nativas: 3 del parser, 16 de lógica y 8 de Wi-Fi. Cppcheck no emitió diagnósticos sobre el código propio analizado. La ejecución integral del bot y de los servicios reales permanece pendiente.
+El 12/11/2026 pasaron 35 pruebas nativas: 3 del parser, 17 de lógica, 8 de Wi-Fi y 7 de ThingSpeak. Compilaron PlatformIO (RAM 48.136/327.680 bytes; flash 998.173/1.310.720 bytes) y el sketch exportado con Arduino CLI (RAM 48.064/327.680 bytes; flash 973.881/1.310.720 bytes). Cppcheck no emitió diagnósticos sobre `src` y `lib`. La ejecución integral del bot y de los servicios reales permanece pendiente.
 
 ## Reglas de funcionamiento acordadas
 

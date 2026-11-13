@@ -1,6 +1,6 @@
 # Guía de estudio y exposición: supervisión ambiental con ESP32
 
-**Base:** código de `78b9d16`, revisado el 12 de noviembre de 2026. Esta guía describe lo implementado y distingue las pruebas locales de las verificaciones que todavía requieren servicios o hardware. Para una lectura rápida, empezar por el resumen y el guion; para defender decisiones, seguir los enlaces al código.
+**Base:** código de `78b9d16` y cambios posteriores del 12 de noviembre de 2026 para controlar el relé y el LED verde. Esta guía distingue las pruebas locales históricas de las verificaciones que todavía requieren servicios o hardware. Para una lectura rápida, empezar por el resumen y el guion; para defender decisiones, seguir los enlaces al código.
 
 ## Índice
 
@@ -30,7 +30,7 @@
 
 El proyecto supervisa temperatura, humedad y un voltaje con una ESP32. Muestra información en una OLED, permite consultar y accionar una salida desde un bot de Telegram y publica mediciones en ThingSpeak. El DHT22 proporciona clima y el potenciómetro simula una magnitud analógica. Una alarma se genera cuando el voltaje alcanza 2,50 V; la histéresis y la espera entre eventos reducen avisos repetidos.
 
-El programa divide responsabilidades en gestores. `setup()` los inicia y `loop()` llama sus métodos de actualización. La salida de demostración es un LED verde, temporizado con `esp_timer` para poder apagarse aunque el ciclo principal esté esperando a la red. La comunicación con los servicios usa HTTPS y validación de certificado. Las pruebas nativas verifican lógica con periféricos y red simulados; todavía hay que confirmar el comportamiento integral en el montaje físico y con los servicios reales.
+El programa divide responsabilidades en gestores. `setup()` los inicia y `loop()` llama sus métodos de actualización. El relé y el LED verde reciben la misma orden, temporizada con `esp_timer` para poder apagarse aunque el ciclo principal esté esperando a la red. La comunicación con los servicios usa HTTPS y validación de certificado. Las pruebas nativas verifican lógica con periféricos y red simulados; todavía hay que confirmar el comportamiento integral en el montaje físico y con los servicios reales.
 
 ## Problema y arquitectura
 
@@ -43,7 +43,7 @@ flowchart LR
   S --> O[OLED]
   S --> T[ThingSpeak]
   S --> B[Bot Telegram]
-  B --> A[Actuador: LED verde]
+  B --> A[Relé y LED verde]
   B --> O
   W[Wi-Fi y hora NTP] --> B
   W --> T
@@ -76,7 +76,8 @@ La consigna original puede consultarse en [el PDF del TPI](<TA4k01-TPI%20-%2002.
 | ESP32 DOIT DevKit V1 | Ejecuta el firmware y aporta GPIO, ADC y Wi-Fi | Placa seleccionada en [PlatformIO](../platformio.ini) |
 | DHT22 | Mide temperatura y humedad | GPIO 33; lectura digital mediante su biblioteca |
 | Potenciómetro | Produce un voltaje variable para medir y disparar alerta | GPIO 32, ADC1; resolución configurada de 12 bits |
-| LED verde | Representa la salida accionada remotamente | GPIO 23; el relé físico del kit es GPIO 14 y no está mapeado por este programa |
+| Relé | Recibe la orden del actuador | GPIO 14; nivel activo HIGH elegido, pendiente de validación física |
+| LED verde | Indica la misma orden del relé | GPIO 23; salida separada escrita consecutivamente |
 | LED azul | Indica estado observado de conexión Wi-Fi | GPIO 2; no garantiza acceso a Internet |
 | OLED 128 × 64 | Muestra bienvenida y vistas pedidas por Telegram | I²C: SDA 21, SCL 22, dirección `0x3C` |
 
@@ -134,9 +135,11 @@ Histéresis y cooldown resuelven cosas distintas: una evita alternancias cerca d
 
 `/releon 10` valida el argumento completo y solicita diez segundos. Se aceptan enteros de 1 a 3600; cero, exceso, caracteres adicionales y números desbordados se rechazan. Un argumento inválido no modifica una temporización que ya estaba activa. `/releoff` cancela el temporizador y apaga la salida cuando se procesa la orden.
 
-`encenderReleTemporizado()` enciende GPIO 23 y programa `esp_timer_start_once`. Al vencer, el callback comprueba el estado y el tiempo antes de apagar; esto protege frente a un callback anterior pendiente tras reprogramar. Las secciones críticas protegen el estado compartido entre el ciclo y el callback. Si falla el arranque del temporizador, la salida se apaga; Telegram responde con el mismo mensaje de uso que para un argumento inválido y Serial registra el error.
+`encenderReleTemporizado()` ordena encender el relé GPIO 14 y el LED verde GPIO 23 y programa `esp_timer_start_once`. Al vencer, el callback comprueba el estado y el tiempo antes de ordenar apagar ambos; esto protege frente a un callback anterior pendiente tras reprogramar. Las salidas se escriben consecutivamente, sin garantizar simultaneidad eléctrica exacta. Las secciones críticas protegen el estado compartido entre el ciclo y el callback. Si falla el arranque del temporizador, se ordena apagarlas; Telegram responde con el mismo mensaje de uso que para un argumento inválido y Serial registra el error.
 
-El callback se despacha mediante la tarea de `esp_timer`, independientemente de que `loop()` esté esperando una respuesta de red. Esto mejora el apagado frente a un contador revisado solo en el ciclo, pero la planificación puede introducir demoras: no es una certificación de tiempo real ni reemplaza la medición en la placa. El nombre «relé» corresponde a la API y al comando; la demostración controla el LED verde, no GPIO 14.
+El callback se despacha mediante la tarea de `esp_timer`, independientemente de que `loop()` esté esperando una respuesta de red. La planificación puede introducir demoras: no es una certificación de tiempo real ni reemplaza la medición en la placa. `estaReleEncendido()` refleja la orden, no una lectura de los contactos. La inicialización ordena apagar relé y LED verde, sin garantizar el estado anterior a `setup()`. El LED azul GPIO 2 sigue Wi-Fi independientemente.
+
+El pinout del kit identifica GPIO 14 pero no indica polaridad. Se eligió `NIVEL_RELE_ACTIVO = HIGH` como supuesto inicial; falta verificar el módulo físico y se puede cambiar a LOW si lo requiere. `GestorActuadores(pinRele, pinLedVerde, pinLedAzul)` recibe los tres pines en ese orden.
 
 El gestor ofrece `consumirEventoApagadoAutomatico()`, pero Telegram no lo invoca en el flujo actual: el LED se apaga al vencer y no se envía un mensaje automático de vencimiento.
 
@@ -168,7 +171,7 @@ El gestor es cliente de la API: usa sondeo mediante `getUpdates`, con `longPoll 
 | --- | --- |
 | `/start` | Bienvenida y teclado inline con acciones |
 | `/clima` | Temperatura y humedad si la última lectura DHT es válida; si no, informa error |
-| `/releon 10` | Enciende el LED verde durante 10 s; admite 1–3600 s |
+| `/releon 10` | Ordena encender relé y LED verde durante 10 s; admite 1–3600 s |
 | `/releoff` | Apaga y cancela el temporizador |
 | `/thingup` | Captura voltaje y anuncia que el envío quedó programado |
 | `/displayled` | Muestra estado del actuador, temporizador y LED Wi-Fi |
@@ -249,7 +252,7 @@ pio test -e native
 pio test -e native_thingspeak
 ```
 
-La compilación de PlatformIO y la exportación compilada con Arduino CLI fueron verificadas para esta base. Las **34 pruebas nativas** comprenden 3 del parser, 16 de lógica, 8 de Wi-Fi y 7 de ThingSpeak. Los entornos sustituyen reloj, GPIO o red por implementaciones de prueba: comprueban decisiones del código, no la radio, OLED, calibración eléctrica, TLS real ni los servicios completos. Cppcheck no emitió diagnósticos sobre lo analizado; eso no demuestra ausencia de defectos.
+Tras el cambio de relé pasaron **35 pruebas nativas**: 3 del parser, 17 de lógica, 8 de Wi-Fi y 7 de ThingSpeak. Compilaron PlatformIO (RAM 48.136/327.680 bytes; flash 998.173/1.310.720 bytes) y el sketch exportado con Arduino CLI (RAM 48.064/327.680 bytes; flash 973.881/1.310.720 bytes). Cppcheck no emitió diagnósticos sobre `src` y `lib`. Antes del cambio habían pasado 34 pruebas. Los entornos sustituyen reloj, GPIO o red por implementaciones de prueba: comprueban decisiones del código, no la radio, OLED, calibración eléctrica, TLS real ni los servicios completos.
 
 Un compañero informó que la simulación funcionaba, con latencia de alrededor de 10 s y un problema en `/thingup` o la subida a ThingSpeak. La corrección se verificó en el entorno local de pruebas; falta comprobar esa versión en una nueva ejecución integral de Wokwi. No se contó con hardware físico para verificar el montaje. La latencia informada es una observación, no una medición garantizada para todas las ejecuciones.
 
@@ -261,7 +264,7 @@ Preparar el simulador o la placa, credenciales propias, acceso al chat autorizad
 
 1. **Arranque:** mostrar bienvenida OLED y mensajes de conexión. Al asociarse, el LED azul debería encender. Explicar que todavía hay que esperar hora y servicios.
 2. **Clima:** enviar `/start` y elegir «Ver clima», o enviar `/clima`. Comparar con el DHT del simulador y mostrar `/displaydht`. Una lectura inválida debe informarse como tal.
-3. **Acción temporizada:** enviar `/releon 10`; observar encendido y luego apagado del LED verde. Consultar `/displayled` durante la espera. Repetir con `/releoff` antes del vencimiento.
+3. **Acción temporizada:** enviar `/releon 10`; observar la orden de encendido y apagado del relé y el LED verde. Consultar `/displayled` durante la espera. Repetir con `/releoff` antes del vencimiento y verificar el montaje físico por separado.
 4. **Validación negativa:** enviar `/releon 0`, `/releon 3601` o `/releon 10abc`; se espera el mensaje de uso y que la salida previa no cambie por esa orden inválida.
 5. **Potenciómetro:** variar el valor, pedir `/displaypot` y comparar ADC y voltaje. Al alcanzar 2,50 V, esperar el aviso; bajar a 2,35 V o menos para rearmar y considerar los 30 s entre eventos.
 6. **Nube:** pedir `/thingup`. Mostrar primero «envío programado» y luego el resultado del intento; comprobar el campo 3 en el canal. Si hay DHT válido, la misma escritura incluye campos 1 y 2. La espera de turno y la red pueden demorar el resultado.
@@ -274,7 +277,7 @@ Si un servicio no responde, mostrar Serial y explicar qué quedó pendiente. No 
 | Tiempo aproximado | Qué contar o mostrar |
 | --- | --- |
 | 0–1 min | Problema y resumen: medir, mostrar, publicar y actuar remotamente. |
-| 1–3 min | Arquitectura y hardware: ESP32, DHT22, ADC, OLED, LED y conexiones. Aclarar LED frente al relé físico. |
+| 1–3 min | Arquitectura y hardware: ESP32, DHT22, ADC, OLED, relé, LED y conexiones. Explicar las salidas separadas y la polaridad pendiente de validar. |
 | 3–5 min | Organización del código: `setup`, `loop`, gestores y constantes. Explicar intervalos y espera de red. |
 | 5–7 min | DHT válido, voltaje, umbral, histéresis y cooldown con un ejemplo. |
 | 7–9 min | Telegram y temporizador independiente; mostrar comando válido e inválido. |
@@ -308,7 +311,7 @@ Si un servicio no responde, mostrar Serial y explicar qué quedó pendiente. No 
 
 | Afirmación precisa | Afirmación engañosa a evitar |
 | --- | --- |
-| El LED verde representa el actuador en GPIO 23. | «Ya controlamos el relé físico de GPIO 14». |
+| El programa ordena GPIO 14 y el LED verde GPIO 23; falta probar el relé físico. | «Ya verificamos el funcionamiento físico del relé». |
 | El temporizador se despacha independientemente del ciclo principal. | «Todo el programa es no bloqueante y tiene tiempo real garantizado». |
 | El bot confirma primero la programación y después informa el resultado del intento. | «Programado significa que ThingSpeak ya guardó el dato». |
 | Las vistas OLED se actualizan cuando se solicita una vista. | «La pantalla actualiza todos los valores continuamente». |
@@ -318,7 +321,7 @@ Si un servicio no responde, mostrar Serial y explicar qué quedó pendiente. No 
 ## Límites y mejoras
 
 - Ejecutar la versión actual en Wokwi y repetir la demostración completa con cuentas propias; medir latencia y comprobar el envío corregido de `/thingup`.
-- Probar el montaje físico, medir voltaje y temporización bajo carga de red y confirmar pantalla y cableado. Integrar GPIO 14 solo después de verificar el circuito del relé.
+- Probar el montaje físico, medir voltaje y temporización bajo carga de red y confirmar pantalla, cableado, alimentación y polaridad del relé GPIO 14.
 - Medir y, si hace falta, reducir bloqueos de red para mejorar la frecuencia efectiva de muestreo; evaluar una tarea separada si el alcance del proyecto lo justifica.
 - Si se necesitan varios eventos garantizados, diseñar una cola acotada y persistencia; hoy solo se conserva un pedido de voltaje pendiente en memoria.
 - Si se usa un grupo y se requiere control por persona, añadir autorización por identificador de usuario y probar sus casos de rechazo.

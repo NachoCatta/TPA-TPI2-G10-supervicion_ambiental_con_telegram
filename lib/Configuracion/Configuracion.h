@@ -13,7 +13,9 @@
 // 1. DEFINICIÓN DE PINES DE HARDWARE
 constexpr uint8_t PIN_DHT22 = 33; // Sensor de Temperatura y Humedad DHT22
 constexpr uint8_t PIN_POTENCIOMETRO = 32; // Entrada Analógica ADC1_CH4
-constexpr uint8_t PIN_LED_VERDE = 23; // Actuador de demostración; el relé físico usa GPIO 14
+constexpr uint8_t PIN_RELE = 14; // Control del relé físico
+constexpr uint8_t PIN_LED_VERDE = 23; // Indicador de la orden del relé
+constexpr uint8_t NIVEL_RELE_ACTIVO = HIGH; // Cambiar a LOW si el módulo es activo en bajo
 constexpr uint8_t PIN_LED_AZUL = 2;  // LED indicador de estado / secundario
 constexpr uint8_t PIN_OLED_SDA = 21; // I2C SDA estándar
 constexpr uint8_t PIN_OLED_SCL = 22; // I2C SCL estándar
